@@ -170,6 +170,7 @@ textarea {
 
 .result-panel {
   grid-column: span 7;
+  scroll-margin-top: 92px;
 }
 
 .history-panel {
@@ -200,6 +201,11 @@ textarea {
   text-align: center;
 }
 
+.impact-score.empty {
+  color: var(--muted);
+  background: #f4f5f0;
+}
+
 .impact-score.light {
   color: var(--green);
   background: #edf5e7;
@@ -213,6 +219,61 @@ textarea {
 .impact-score.high {
   color: #842d1f;
   background: #ffe5dd;
+}
+
+.analysis-notice {
+  margin-bottom: 14px;
+  border: 1px solid #c9dcc5;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: var(--green);
+  background: #f0f7eb;
+  font-weight: 850;
+  line-height: 1.45;
+}
+
+.analysis-notice.loading {
+  position: relative;
+  padding-left: 42px;
+}
+
+.analysis-notice.loading::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  border: 2px solid rgba(47, 111, 78, 0.22);
+  border-top-color: var(--green);
+  border-radius: 50%;
+  animation: spin 900ms linear infinite;
+}
+
+.analysis-notice.pulse {
+  animation: noticePulse 720ms ease;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes noticePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(47, 111, 78, 0);
+  }
+  45% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 5px rgba(47, 111, 78, 0.13);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(47, 111, 78, 0);
+  }
 }
 
 .upload-zone {
@@ -334,6 +395,11 @@ textarea {
   background: #fff;
 }
 
+.primary-button:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .plate-read {
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr);
@@ -389,6 +455,41 @@ textarea {
   margin: 0;
   color: var(--muted);
   line-height: 1.55;
+}
+
+.detected-foods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.detected-foods span {
+  border: 1px solid #cfe0c8;
+  border-radius: 999px;
+  padding: 6px 9px;
+  color: var(--green);
+  background: #f0f7eb;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.detected-foods .muted-chip {
+  color: var(--muted);
+  background: #f8f8f3;
+  border-color: var(--line);
+}
+
+.accuracy-notes {
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.accuracy-notes:empty {
+  display: none;
 }
 
 .impact-cards {
@@ -597,18 +698,66 @@ textarea {
 }
 
 @media (max-width: 720px) {
+  body {
+    background: var(--paper);
+  }
+
   .app-header {
     position: static;
     align-items: start;
     flex-direction: column;
+    gap: 8px;
+    padding: 16px;
   }
 
   .motto {
     text-align: left;
+    font-size: 0.88rem;
+  }
+
+  .app-shell {
+    padding: 14px;
+  }
+
+  .uploader-hero {
+    gap: 16px;
+    padding: 18px 0 14px;
+  }
+
+  .hero-copy h2 {
+    font-size: 2.25rem;
+    line-height: 1.02;
+  }
+
+  .hero-copy p:last-child {
+    margin-top: 14px;
+    font-size: 0.98rem;
+  }
+
+  .quick-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 14px;
+  }
+
+  .panel-heading {
+    align-items: start;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .scan-status,
+  .impact-score {
+    max-width: 46vw;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
   }
 
   .upload-zone {
-    min-height: 300px;
+    min-height: min(62vh, 430px);
   }
 
   .meal-context,
@@ -625,8 +774,51 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .primary-button,
+  .secondary-button,
+  input,
+  select {
+    min-height: 50px;
+  }
+
+  textarea {
+    min-height: 92px;
+  }
+
+  .analysis-notice {
+    font-size: 0.95rem;
+  }
+
+  .analysis-notice.loading {
+    padding-left: 38px;
+  }
+
+  .impact-cards {
+    gap: 8px;
+  }
+
+  .metric-card b {
+    font-size: 1.2rem;
+  }
+
   .plate {
     max-width: 240px;
     margin: 0 auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .hero-copy h2 {
+    font-size: 1.95rem;
+  }
+
+  .panel-heading {
+    flex-direction: column;
+  }
+
+  .scan-status,
+  .impact-score {
+    max-width: 100%;
+    width: 100%;
   }
 }

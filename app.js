@@ -15,12 +15,41 @@ const portionMultipliers = {
 };
 
 const descriptionBoosts = [
-  { terms: ["fried", "fries", "chips", "crispy"], changes: { calories: 180, fat: 12, sodium: 260 } },
-  { terms: ["soda", "dessert", "cake", "cookie", "sweet"], changes: { calories: 160, carbs: 34, sugar: 28 } },
-  { terms: ["rice", "pasta", "bread", "noodle", "tortilla"], changes: { calories: 130, carbs: 30 } },
-  { terms: ["cheese", "cream", "alfredo", "ranch"], changes: { calories: 150, fat: 12, sodium: 220 } },
-  { terms: ["grilled", "chicken", "fish", "turkey", "tofu"], changes: { protein: 16, calories: 80 } },
-  { terms: ["salad", "vegetable", "broccoli", "greens", "salsa"], changes: { carbs: 8, calories: 35 } },
+  {
+    label: "fried/crunchy side",
+    terms: ["fried", "fries", "chips", "crispy"],
+    changes: { calories: 180, fat: 12, sodium: 260 },
+  },
+  {
+    label: "sweet drink or dessert",
+    terms: ["soda", "dessert", "cake", "cookie", "sweet"],
+    changes: { calories: 160, carbs: 34, sugar: 28 },
+  },
+  {
+    label: "starch base",
+    terms: ["rice", "pasta", "bread", "noodle", "tortilla", "burrito"],
+    changes: { calories: 130, carbs: 30 },
+  },
+  {
+    label: "beans or legumes",
+    terms: ["beans", "lentils", "chickpeas"],
+    changes: { calories: 110, protein: 7, carbs: 18, fiber: 6 },
+  },
+  {
+    label: "cheese or creamy sauce",
+    terms: ["cheese", "cream", "alfredo", "ranch", "sour cream"],
+    changes: { calories: 150, fat: 12, sodium: 220 },
+  },
+  {
+    label: "lean protein",
+    terms: ["grilled", "chicken", "fish", "turkey", "tofu", "steak", "shrimp"],
+    changes: { protein: 16, calories: 80 },
+  },
+  {
+    label: "vegetable or salsa",
+    terms: ["salad", "vegetable", "broccoli", "greens", "salsa", "peppers", "lettuce"],
+    changes: { carbs: 8, calories: 35, fiber: 3 },
+  },
 ];
 
 const days = [
@@ -34,6 +63,35 @@ const days = [
 ];
 
 let mealHistory = [];
+let lastAnalysisId = 0;
+let selectedMealImage = "";
+let loadingTimers = [];
+
+function setAnalyzeButton(disabled) {
+  const button = $("#analyzeMeal");
+  button.disabled = disabled;
+  button.textContent = disabled ? "Analyzing..." : "Analyze again";
+}
+
+function clearLoadingTimers() {
+  loadingTimers.forEach((timer) => clearTimeout(timer));
+  loadingTimers = [];
+}
+
+function startLoadingMessages() {
+  clearLoadingTimers();
+  const messages = [
+    [1800, "Identifying visible foods and likely portions from the photo..."],
+    [4200, "Estimating calorie range, protein, carbs, fat, sodium, and sugar..."],
+    [7200, "Preparing your meal impact, accuracy notes, and next step..."],
+  ];
+
+  loadingTimers = messages.map(([delay, message]) =>
+    setTimeout(() => {
+      $("#analysisNotice").textContent = message;
+    }, delay)
+  );
+}
 
 function scaleProfile(profile, multiplier) {
   return Object.fromEntries(
@@ -41,16 +99,20 @@ function scaleProfile(profile, multiplier) {
   );
 }
 
-function applyDescriptionSignals(values) {
+function getDescriptionSignals() {
   const description = $("#mealDescription").value.toLowerCase();
+  if (!description.trim()) return [];
+
+  return descriptionBoosts.filter(({ terms }) => terms.some((term) => description.includes(term)));
+}
+
+function applyDescriptionSignals(values, signals) {
   const adjusted = { ...values };
 
-  descriptionBoosts.forEach(({ terms, changes }) => {
-    if (terms.some((term) => description.includes(term))) {
-      Object.entries(changes).forEach(([key, value]) => {
-        adjusted[key] = Math.max(0, (adjusted[key] || 0) + value);
-      });
-    }
+  signals.forEach(({ changes }) => {
+    Object.entries(changes).forEach(([key, value]) => {
+      adjusted[key] = Math.max(0, (adjusted[key] || 0) + value);
+    });
   });
 
   return adjusted;
@@ -59,7 +121,12 @@ function applyDescriptionSignals(values) {
 function getMealValues() {
   const type = $("#mealType").value;
   const portion = $("#portion").value;
-  return applyDescriptionSignals(scaleProfile(impactProfiles[type], portionMultipliers[portion]));
+  const signals = getDescriptionSignals();
+
+  return {
+    values: applyDescriptionSignals(scaleProfile(impactProfiles[type], portionMultipliers[portion]), signals),
+    signals,
+  };
 }
 
 function impactLevel(values) {
@@ -74,8 +141,12 @@ function impactLevel(values) {
 }
 
 function renderImpact(values) {
+  const calorieRange =
+    values.calorie_min && values.calorie_max
+      ? `likely range ${values.calorie_min}-${values.calorie_max} kcal`
+      : "estimated energy";
   const metrics = [
-    ["Calories", values.calories, "estimated energy"],
+    ["Calories", `${values.calories} kcal`, calorieRange],
     ["Protein", `${values.protein}g`, "satiety and muscle support"],
     ["Carbs", `${values.carbs}g`, "glucose load"],
     ["Fat", `${values.fat}g`, "richness and fullness"],
@@ -148,12 +219,29 @@ function renderScore(values) {
   $("#impactScore").textContent = `${level.score} ${level.label}`;
 }
 
-function plateSummary(values) {
+function renderDetectedFoods(signals) {
+  if (!signals.length) {
+    $("#detectedFoods").innerHTML =
+      '<span class="muted-chip">No plate details entered yet</span>';
+    return;
+  }
+
+  $("#detectedFoods").innerHTML = signals
+    .map(({ label }) => `<span>${label}</span>`)
+    .join("");
+}
+
+function plateSummary(values, signals) {
   const proteinSignal = values.protein >= 40 ? "solid protein support" : "lighter protein support";
   const carbSignal = values.carbs >= 110 ? "a high starch load" : "a manageable starch load";
   const sodiumSignal = values.sodium >= 1800 ? "likely water retention tomorrow" : "less scale noise from sodium";
+  const portion = $("#portion").value.toLowerCase();
+  const mealType = $("#mealType").value.toLowerCase();
+  const detectedText = signals.length
+    ? ` I detected ${signals.map(({ label }) => label).join(", ")} from your description.`
+    : " Add a plate description or photo so this estimate can move beyond the default meal type.";
 
-  return `This plate reads as ${proteinSignal}, ${carbSignal}, and ${sodiumSignal}. The goal is not to undo the meal; it is to use the next choice to steer the trend.`;
+  return `This ${portion} ${mealType} reads as ${proteinSignal}, ${carbSignal}, and ${sodiumSignal}.${detectedText} The goal is not to undo the meal; it is to use the next choice to steer the trend.`;
 }
 
 function coach(values) {
@@ -180,6 +268,50 @@ function nextSteps(values) {
 
 function renderNextSteps(values) {
   $("#nextSteps").innerHTML = nextSteps(values).map((step) => `<li>${step}</li>`).join("");
+}
+
+function renderEmptyAnalysis(message = "Upload a meal photo to start. No sample analysis is shown.") {
+  clearLoadingTimers();
+  setAnalyzeButton(false);
+  $("#impactScore").className = "impact-score empty";
+  $("#impactScore").textContent = "--";
+  $("#analysisNotice").textContent = message;
+  $("#plateSummary").textContent =
+    "Your meal photo will be analyzed for likely foods, portions, macro signals, sodium, glucose impact, water retention, and next steps.";
+  $("#detectedFoods").innerHTML = '<span class="muted-chip">Waiting for meal photo</span>';
+  $("#accuracyNotes").innerHTML = "";
+  $("#impactCards").innerHTML = "";
+  $("#vitalSignals").innerHTML = "";
+  $("#coachMessage").textContent =
+    "Take or upload a meal photo, then press Analyze meal. The app will use the local vision backend instead of a canned sample.";
+  $("#nextSteps").innerHTML = "";
+  $("#confidenceBadge").textContent = "No analysis yet";
+  $("#scanStatus").textContent = "Ready";
+}
+
+function scrollToResults() {
+  $("#analysisNotice").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function renderAnalyzingState() {
+  setAnalyzeButton(true);
+  startLoadingMessages();
+  $("#impactScore").className = "impact-score empty";
+  $("#impactScore").textContent = "...";
+  $("#scanStatus").textContent = "Analyzing";
+  $("#analysisNotice").textContent =
+    "Analyzing your meal photo now. The local vision model is identifying foods, estimating portions, checking calorie range, and preparing next steps.";
+  $("#analysisNotice").classList.add("loading");
+  $("#plateSummary").textContent =
+    "Reading the image for visible foods, portion clues, sauces, sides, and size references.";
+  $("#detectedFoods").innerHTML = '<span class="muted-chip">Detecting foods...</span>';
+  $("#accuracyNotes").innerHTML = "";
+  $("#impactCards").innerHTML = "";
+  $("#vitalSignals").innerHTML = "";
+  $("#coachMessage").textContent =
+    "This may take a little longer the first time while the local model warms up.";
+  $("#nextSteps").innerHTML = "";
+  $("#confidenceBadge").textContent = "Analyzing photo";
 }
 
 function renderHistory() {
@@ -219,27 +351,162 @@ function saveToHistory(values) {
   renderHistory();
 }
 
-function analyzeMeal({ save = true } = {}) {
-  const values = getMealValues();
-  $("#scanStatus").textContent = "Analyzed";
+function applyVisionResult(result) {
+  const safeNumber = (value, fallback = 0) => Math.max(0, Math.round(Number(value) || fallback));
+  const calories = safeNumber(result.calories, 650);
+  const calorieMin = safeNumber(result.calorie_min, Math.round(calories * 0.8));
+  const calorieMax = safeNumber(result.calorie_max, Math.round(calories * 1.25));
+
+  return {
+    calories,
+    calorie_min: Math.min(calorieMin, calories),
+    calorie_max: Math.max(calorieMax, calories),
+    protein: safeNumber(result.protein_g, 30),
+    carbs: safeNumber(result.carbs_g, 65),
+    fat: safeNumber(result.fat_g, 24),
+    sodium: safeNumber(result.sodium_mg, 900),
+    sugar: safeNumber(result.sugar_g, 10),
+  };
+}
+
+function renderVisionFoods(result) {
+  const foods = Array.isArray(result.foods) ? result.foods : [];
+
+  if (!foods.length) {
+    $("#detectedFoods").innerHTML = '<span class="muted-chip">No foods confidently detected</span>';
+    return;
+  }
+
+  $("#detectedFoods").innerHTML = foods
+    .map((food) => {
+      const name = food.name || "food item";
+      const portion = food.estimated_portion ? ` · ${food.estimated_portion}` : "";
+      const confidence = food.confidence ? ` · ${food.confidence}` : "";
+      return `<span>${name}${portion}${confidence}</span>`;
+    })
+    .join("");
+}
+
+function renderVisionAnalysis(result) {
+  const values = applyVisionResult(result);
+  const confidence = result.confidence || "photo estimate";
+  const notes = Array.isArray(result.accuracy_notes) ? result.accuracy_notes : [];
+
   renderImpact(values);
   renderScore(values);
   renderVitalSignals(values);
   renderNextSteps(values);
-  $("#plateSummary").textContent = plateSummary(values);
-  $("#coachMessage").textContent = coach(values);
-  $("#confidenceBadge").textContent = $("#mealPhoto").files.length ? "Photo + context" : "Context estimate";
-  if (save) saveToHistory(values);
+  renderVisionFoods(result);
+
+  $("#plateSummary").textContent =
+    result.plate_read ||
+    `This photo was analyzed for likely foods, portions, macro signals, sodium, glucose impact, and short-term weight trend pressure.`;
+  $("#coachMessage").textContent =
+    result.coaching ||
+    "Here's what happened: this meal has been estimated from the image. Use the next plate to steer the trend, not punish the previous choice.";
+  $("#confidenceBadge").textContent = `Vision: ${confidence}`;
+  $("#accuracyNotes").innerHTML = notes.map((note) => `<li>${note}</li>`).join("");
+}
+
+async function requestVisionAnalysis() {
+  const response = await fetch("/api/analyze-meal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image: selectedMealImage,
+      context: {
+        mealType: $("#mealType").value,
+        portion: $("#portion").value,
+        goal: $("#goal").value,
+        activity: $("#activity").value,
+        hunger: $("#hunger").value,
+        timing: $("#mealTiming").value,
+        plateReference: $("#plateReference").value,
+        eatenAmount: $("#eatenAmount").value,
+        notes: $("#mealDescription").value.trim(),
+      },
+    }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.error || "Vision analysis failed.");
+  }
+
+  return payload;
+}
+
+async function analyzeMeal({ save = true } = {}) {
+  const analyzedAt = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+
+  if (!selectedMealImage) {
+    renderEmptyAnalysis("Upload a meal photo first. The sample analysis has been removed.");
+    $("#analysisNotice").classList.remove("pulse");
+    void $("#analysisNotice").offsetWidth;
+    $("#analysisNotice").classList.add("pulse");
+    return;
+  }
+
+  const { values, signals } = getMealValues();
+  lastAnalysisId += 1;
+  renderAnalyzingState();
+
+  try {
+    if (selectedMealImage && window.location.protocol !== "file:") {
+      const result = await requestVisionAnalysis();
+      const visionValues = applyVisionResult(result);
+
+      renderVisionAnalysis(result);
+      $("#analysisNotice").textContent = `Photo analysis ${lastAnalysisId} complete at ${analyzedAt}. The foods and portions below were estimated from the image.`;
+      if (save) saveToHistory(visionValues);
+    } else {
+      renderImpact(values);
+      renderScore(values);
+      renderVitalSignals(values);
+      renderNextSteps(values);
+      $("#plateSummary").textContent = plateSummary(values, signals);
+      renderDetectedFoods(signals);
+      $("#coachMessage").textContent = coach(values);
+      $("#confidenceBadge").textContent = "Photo ready";
+      $("#analysisNotice").textContent =
+        selectedMealImage && window.location.protocol === "file:"
+          ? `Photo added, but real food detection needs the local server link. Open the localhost test link to run vision analysis.`
+          : `Photo fallback analysis ${lastAnalysisId} complete at ${analyzedAt}. Review your vital information and next step below.`;
+      if (save) saveToHistory(values);
+    }
+
+    $("#scanStatus").textContent = "Photo analyzed";
+  } catch (error) {
+    renderImpact(values);
+    renderScore(values);
+    renderVitalSignals(values);
+    renderNextSteps(values);
+    $("#plateSummary").textContent = plateSummary(values, signals);
+    renderDetectedFoods(signals);
+    $("#coachMessage").textContent = coach(values);
+    $("#confidenceBadge").textContent = "Vision unavailable";
+    $("#scanStatus").textContent = "Vision unavailable";
+    $("#analysisNotice").textContent = `${error.message} Showing the fallback estimate for now.`;
+    if (save) saveToHistory(values);
+  } finally {
+    clearLoadingTimers();
+    setAnalyzeButton(false);
+    $("#analysisNotice").classList.remove("loading");
+  }
+
+  $("#analysisNotice").classList.remove("pulse");
+  void $("#analysisNotice").offsetWidth;
+  $("#analysisNotice").classList.add("pulse");
 }
 
 function clearMeal() {
   $("#mealPhoto").value = "";
   $("#mealDescription").value = "";
+  selectedMealImage = "";
   $("#preview").removeAttribute("src");
   $(".upload-zone").classList.remove("has-image");
   $("#uploadText").textContent = "Take or upload a meal photo";
-  $("#scanStatus").textContent = "Ready";
-  analyzeMeal({ save: false });
+  renderEmptyAnalysis();
 }
 
 function renderPlanner() {
@@ -264,24 +531,30 @@ function bindPhotoPreview() {
     if (!file) return;
 
     const preview = $("#preview");
-    preview.src = URL.createObjectURL(file);
-    zone.classList.add("has-image");
-    $("#uploadText").textContent = "Retake or replace photo";
-    $("#scanStatus").textContent = "Photo added";
+    const reader = new FileReader();
+
+    reader.addEventListener("load", () => {
+      selectedMealImage = reader.result;
+      preview.src = selectedMealImage;
+      zone.classList.add("has-image");
+      $("#uploadText").textContent = "Retake or replace photo";
+      $("#scanStatus").textContent = "Photo added";
+      renderAnalyzingState();
+      scrollToResults();
+      analyzeMeal();
+    });
+
+    reader.readAsDataURL(file);
   });
 }
 
 function bindEvents() {
   $("#analyzeMeal").addEventListener("click", () => analyzeMeal());
   $("#clearMeal").addEventListener("click", clearMeal);
-  ["mealType", "portion", "goal", "activity", "preference", "hunger", "mealTiming"].forEach((id) => {
-    $(`#${id}`).addEventListener("change", () => analyzeMeal({ save: false }));
-  });
-  $("#mealDescription").addEventListener("input", () => analyzeMeal({ save: false }));
 }
 
 renderPlanner();
 renderHistory();
-analyzeMeal({ save: false });
+renderEmptyAnalysis();
 bindPhotoPreview();
 bindEvents();

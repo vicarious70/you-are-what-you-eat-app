@@ -59,11 +59,11 @@
 
           <div class="meal-context">
             <label class="wide-field">
-              What is on the plate?
+              Optional notes
               <textarea
                 id="mealDescription"
                 rows="3"
-                placeholder="Example: grilled chicken burrito bowl with rice, beans, cheese, salsa, chips"
+                placeholder="Optional: sauce on the side, half eaten, extra cheese, shared fries"
               ></textarea>
             </label>
             <label>
@@ -101,10 +101,29 @@
                 <option>Late night</option>
               </select>
             </label>
+            <label>
+              Size Reference
+              <select id="plateReference">
+                <option selected>Unknown</option>
+                <option>Standard dinner plate</option>
+                <option>Small plate or bowl</option>
+                <option>Takeout container</option>
+                <option>Hand or fork visible</option>
+              </select>
+            </label>
+            <label>
+              Amount Eaten
+              <select id="eatenAmount">
+                <option selected>All or planned</option>
+                <option>About three quarters</option>
+                <option>About half</option>
+                <option>Less than half</option>
+              </select>
+            </label>
           </div>
 
           <div class="action-row">
-            <button id="analyzeMeal" class="primary-button">Analyze meal</button>
+            <button id="analyzeMeal" class="primary-button" type="button">Analyze again</button>
             <button id="clearMeal" class="secondary-button" type="button">Clear</button>
           </div>
         </article>
@@ -116,6 +135,10 @@
               <h2>Meal DNA Result</h2>
             </div>
             <div id="impactScore" class="impact-score">--</div>
+          </div>
+
+          <div id="analysisNotice" class="analysis-notice">
+            Ready for a meal photo or plate description.
           </div>
 
           <div id="plateRead" class="plate-read">
@@ -131,6 +154,8 @@
                 Upload a meal to estimate portion balance, macro signals, sodium,
                 glucose impact, and tomorrow's likely scale noise.
               </p>
+              <div id="detectedFoods" class="detected-foods"></div>
+              <ul id="accuracyNotes" class="accuracy-notes"></ul>
             </div>
           </div>
 
