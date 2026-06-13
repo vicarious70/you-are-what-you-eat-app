@@ -20,6 +20,8 @@
 body {
   margin: 0;
   min-width: 320px;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
   color: var(--ink);
   background:
     linear-gradient(180deg, rgba(143, 191, 95, 0.16), transparent 420px),
@@ -235,6 +237,12 @@ textarea {
 .analysis-notice.loading {
   position: relative;
   padding-left: 42px;
+}
+
+.analysis-notice.error {
+  color: #842d1f;
+  border-color: #f2b9aa;
+  background: #fff0ec;
 }
 
 .analysis-notice.loading::before {
@@ -733,7 +741,7 @@ textarea {
     align-items: start;
     flex-direction: column;
     gap: 8px;
-    padding: 16px;
+    padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
   }
 
   .motto {

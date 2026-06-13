@@ -273,6 +273,7 @@ function renderNextSteps(values) {
 function renderEmptyAnalysis(message = "Upload a meal photo to start. No sample analysis is shown.") {
   clearLoadingTimers();
   setAnalyzeButton(false);
+  $("#analysisNotice").classList.remove("loading", "error");
   $("#impactScore").className = "impact-score empty";
   $("#impactScore").textContent = "--";
   $("#analysisNotice").textContent = message;
@@ -289,13 +290,35 @@ function renderEmptyAnalysis(message = "Upload a meal photo to start. No sample 
   $("#scanStatus").textContent = "Ready";
 }
 
+function renderAnalysisFailure(message) {
+  clearLoadingTimers();
+  setAnalyzeButton(false);
+  $("#analysisNotice").classList.remove("loading");
+  $("#analysisNotice").classList.add("error");
+  $("#impactScore").className = "impact-score empty";
+  $("#impactScore").textContent = "--";
+  $("#analysisNotice").textContent = message;
+  $("#plateSummary").textContent =
+    "The photo was received, but the local vision model did not return a usable meal analysis. Try Analyze again, or retake the photo with the full plate visible and better lighting.";
+  $("#detectedFoods").innerHTML = '<span class="muted-chip">No verified food detection</span>';
+  $("#accuracyNotes").innerHTML = "";
+  $("#impactCards").innerHTML = "";
+  $("#vitalSignals").innerHTML = "";
+  $("#coachMessage").textContent =
+    "No nutrition details are shown because the image analysis failed. This avoids presenting a default estimate as if it came from your photo.";
+  $("#nextSteps").innerHTML = "<li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the local model has warmed up.</li>";
+  $("#confidenceBadge").textContent = "Analysis failed";
+  $("#scanStatus").textContent = "Try again";
+}
+
 function scrollToResults() {
-  $("#analysisNotice").scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#plateRead").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderAnalyzingState() {
   setAnalyzeButton(true);
   startLoadingMessages();
+  $("#analysisNotice").classList.remove("error");
   $("#impactScore").className = "impact-score empty";
   $("#impactScore").textContent = "...";
   $("#scanStatus").textContent = "Analyzing";
@@ -457,6 +480,7 @@ async function analyzeMeal({ save = true } = {}) {
       const visionValues = applyVisionResult(result);
 
       renderVisionAnalysis(result);
+      $("#analysisNotice").classList.remove("error");
       $("#analysisNotice").textContent = `Photo analysis ${lastAnalysisId} complete at ${analyzedAt}. The foods and portions below were estimated from the image.`;
       if (save) saveToHistory(visionValues);
     } else {
@@ -468,6 +492,7 @@ async function analyzeMeal({ save = true } = {}) {
       renderDetectedFoods(signals);
       $("#coachMessage").textContent = coach(values);
       $("#confidenceBadge").textContent = "Photo ready";
+      $("#analysisNotice").classList.remove("error");
       $("#analysisNotice").textContent =
         selectedMealImage && window.location.protocol === "file:"
           ? `Photo added, but real food detection needs the local server link. Open the localhost test link to run vision analysis.`
@@ -477,17 +502,7 @@ async function analyzeMeal({ save = true } = {}) {
 
     $("#scanStatus").textContent = "Photo analyzed";
   } catch (error) {
-    renderImpact(values);
-    renderScore(values);
-    renderVitalSignals(values);
-    renderNextSteps(values);
-    $("#plateSummary").textContent = plateSummary(values, signals);
-    renderDetectedFoods(signals);
-    $("#coachMessage").textContent = coach(values);
-    $("#confidenceBadge").textContent = "Vision unavailable";
-    $("#scanStatus").textContent = "Vision unavailable";
-    $("#analysisNotice").textContent = `${error.message} Showing the fallback estimate for now.`;
-    if (save) saveToHistory(values);
+    renderAnalysisFailure(error.message || "Vision analysis failed.");
   } finally {
     clearLoadingTimers();
     setAnalyzeButton(false);
