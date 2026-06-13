@@ -320,7 +320,11 @@ function renderAnalysisFailure(message) {
 }
 
 function scrollToResults() {
-  $("#plateRead").scrollIntoView({ behavior: "smooth", block: "start" });
+  const target = $("#analysisNotice");
+  const viewportWidth = window.visualViewport?.width || window.innerWidth;
+  const topPadding = viewportWidth <= 700 ? 20 : 28;
+  const targetTop = target.getBoundingClientRect().top + window.scrollY - topPadding;
+  window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
 }
 
 function renderAnalyzingState() {
@@ -508,6 +512,7 @@ async function analyzeMeal({ save = true } = {}) {
       renderVisionAnalysis(result);
       $("#analysisNotice").classList.remove("error");
       $("#analysisNotice").textContent = `Photo analysis ${lastAnalysisId} complete at ${analyzedAt}. The foods and portions below were estimated from the image.`;
+      scrollToResults();
       if (save) saveToHistory(visionValues);
     } else {
       renderImpact(values);
@@ -523,12 +528,14 @@ async function analyzeMeal({ save = true } = {}) {
         selectedMealImage && window.location.protocol === "file:"
           ? `Photo added, but real food detection needs a server link. Open the hosted or localhost test link to run vision analysis.`
           : `Photo fallback analysis ${lastAnalysisId} complete at ${analyzedAt}. Review your vital information and next step below.`;
+      scrollToResults();
       if (save) saveToHistory(values);
     }
 
     $("#scanStatus").textContent = "Photo analyzed";
   } catch (error) {
     renderAnalysisFailure(error.message || "Vision analysis failed.");
+    scrollToResults();
   } finally {
     clearLoadingTimers();
     setAnalyzeButton(false);

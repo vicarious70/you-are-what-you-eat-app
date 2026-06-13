@@ -22,6 +22,7 @@ body {
   min-width: 320px;
   padding-top: max(env(safe-area-inset-top), 16px);
   padding-bottom: env(safe-area-inset-bottom);
+  scroll-padding-top: calc(18px + env(safe-area-inset-top));
   color: var(--ink);
   background:
     linear-gradient(180deg, rgba(143, 191, 95, 0.16), transparent 420px),
@@ -753,6 +754,7 @@ textarea {
 @media (max-width: 720px) {
   body {
     background: var(--paper);
+    scroll-padding-top: calc(28px + env(safe-area-inset-top));
   }
 
   .app-header {
