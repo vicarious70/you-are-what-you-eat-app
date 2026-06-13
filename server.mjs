@@ -11,8 +11,6 @@ const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llava:latest";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const HOST = process.env.HOST || "0.0.0.0";
 
 const mimeTypes = {
@@ -228,50 +226,6 @@ async function analyzeWithGemini(image, context) {
   };
 }
 
-async function analyzeWithOpenAI(image, context) {
-  if (!OPENAI_API_KEY) {
-    throw new Error("OpenAI API key is not configured on the server.");
-  }
-
-  if (!String(image || "").startsWith("data:image/")) {
-    throw new Error("No valid meal image was received.");
-  }
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      input: [
-        {
-          role: "user",
-          content: [
-            { type: "input_text", text: buildMealPrompt(context) },
-            { type: "input_image", image_url: image },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    const details = await response.text();
-    console.error("OpenAI vision request failed:", details.slice(0, 800));
-    throw new Error("OpenAI vision analysis failed. Check the server API key, billing, and model access.");
-  }
-
-  const payload = await response.json();
-  const raw = getResponseText(payload);
-  return {
-    ...normalizeMealResult(parseModelJson(raw)),
-    provider: "openai",
-    model: OPENAI_MODEL,
-  };
-}
-
 async function analyzeWithOllama(image, context) {
   const imageBase64 = dataUrlToBase64(image);
   if (!imageBase64) {
@@ -313,9 +267,7 @@ async function handleAnalyzeMeal(request, response) {
     const body = JSON.parse(await readBody(request));
     const result = GEMINI_API_KEY
       ? await analyzeWithGemini(body.image, body.context)
-      : OPENAI_API_KEY
-        ? await analyzeWithOpenAI(body.image, body.context)
-        : await analyzeWithOllama(body.image, body.context);
+      : await analyzeWithOllama(body.image, body.context);
     sendJson(response, 200, result);
   } catch (error) {
     sendJson(response, 503, {
@@ -349,8 +301,8 @@ const server = createServer((request, response) => {
   if (request.method === "GET" && request.url === "/api/health") {
     sendJson(response, 200, {
       ok: true,
-      provider: GEMINI_API_KEY ? "gemini" : OPENAI_API_KEY ? "openai" : "ollama",
-      model: GEMINI_API_KEY ? GEMINI_MODEL : OPENAI_API_KEY ? OPENAI_MODEL : OLLAMA_MODEL,
+      provider: GEMINI_API_KEY ? "gemini" : "ollama",
+      model: GEMINI_API_KEY ? GEMINI_MODEL : OLLAMA_MODEL,
       ollama: OLLAMA_URL,
     });
     return;
@@ -377,8 +329,6 @@ server.listen(PORT, HOST, () => {
   getLanUrls().forEach((url) => console.log(`Mobile/LAN test URL: ${url}`));
   if (GEMINI_API_KEY) {
     console.log(`Vision provider: Gemini ${GEMINI_MODEL}`);
-  } else if (OPENAI_API_KEY) {
-    console.log(`Vision provider: OpenAI ${OPENAI_MODEL}`);
   } else {
     console.log(`Vision provider: Ollama ${OLLAMA_MODEL} at ${OLLAMA_URL}`);
   }

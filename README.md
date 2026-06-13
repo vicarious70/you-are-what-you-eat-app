@@ -71,7 +71,7 @@ node server.mjs
 
 The phone opens the Mac/server URL, uploads the photo, and the backend calls Gemini. Do not put the API key in `index.html`, `app.js`, or any mobile frontend file.
 
-If `GEMINI_API_KEY` is not set but `OPENAI_API_KEY` is set, the backend can still use OpenAI as a fallback. If neither hosted key is set, local development falls back to Ollama.
+If `GEMINI_API_KEY` is not set, local development falls back to Ollama.
 
 ## Running With Free Local Vision
 
@@ -84,7 +84,7 @@ The app can use a local, no-per-use-cost vision backend through Ollama.
 ollama pull llava:latest
 ```
 
-3. Start this app from the project folder without `GEMINI_API_KEY` or `OPENAI_API_KEY`:
+3. Start this app from the project folder without `GEMINI_API_KEY`:
 
 ```sh
 node server.mjs

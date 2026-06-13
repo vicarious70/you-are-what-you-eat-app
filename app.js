@@ -424,7 +424,7 @@ function renderVisionAnalysis(result) {
   const values = applyVisionResult(result);
   const confidence = result.confidence || "photo estimate";
   const notes = Array.isArray(result.accuracy_notes) ? result.accuracy_notes : [];
-  const providerName = result.provider === "gemini" ? "Gemini" : result.provider === "openai" ? "OpenAI" : "Vision";
+  const providerName = result.provider === "gemini" ? "Gemini" : "Vision";
 
   renderImpact(values);
   renderScore(values);
