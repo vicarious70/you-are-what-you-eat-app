@@ -287,14 +287,6 @@ textarea {
   background:
     linear-gradient(135deg, rgba(47, 111, 78, 0.08), rgba(224, 180, 91, 0.12)),
     #f7faf4;
-  cursor: pointer;
-}
-
-.upload-zone input {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  cursor: pointer;
 }
 
 .upload-zone img {
@@ -324,6 +316,40 @@ textarea {
   color: #fff;
   background: rgba(23, 32, 27, 0.72);
   border-radius: 6px;
+}
+
+.photo-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.photo-action {
+  min-height: 50px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: #fff;
+  background: var(--green);
+  font-size: 0.94rem;
+  font-weight: 900;
+  text-align: center;
+  cursor: pointer;
+}
+
+.photo-action + .photo-action {
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+}
+
+.photo-action input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .meal-context,
@@ -762,6 +788,7 @@ textarea {
 
   .meal-context,
   .profile-form,
+  .photo-actions,
   .impact-cards,
   .vital-signals,
   .result-grid,

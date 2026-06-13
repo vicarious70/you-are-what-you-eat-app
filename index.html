@@ -51,11 +51,21 @@
             <span id="scanStatus" class="scan-status">Ready</span>
           </div>
 
-          <label class="upload-zone" for="mealPhoto">
-            <input type="file" id="mealPhoto" accept="image/*" capture="environment" />
+          <div class="upload-zone">
             <img id="preview" alt="" />
             <span id="uploadText">Take or upload a meal photo</span>
-          </label>
+          </div>
+
+          <div class="photo-actions">
+            <label class="photo-action" for="cameraPhoto">
+              Take photo
+              <input type="file" id="cameraPhoto" accept="image/*" capture="environment" />
+            </label>
+            <label class="photo-action" for="mealPhoto">
+              Upload photo
+              <input type="file" id="mealPhoto" accept="image/*" />
+            </label>
+          </div>
 
           <div class="meal-context">
             <label class="wide-field">

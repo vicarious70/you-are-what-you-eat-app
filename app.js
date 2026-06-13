@@ -501,6 +501,7 @@ async function analyzeMeal({ save = true } = {}) {
 
 function clearMeal() {
   $("#mealPhoto").value = "";
+  $("#cameraPhoto").value = "";
   $("#mealDescription").value = "";
   selectedMealImage = "";
   $("#preview").removeAttribute("src");
@@ -526,7 +527,7 @@ function renderPlanner() {
 function bindPhotoPreview() {
   const zone = $(".upload-zone");
 
-  $("#mealPhoto").addEventListener("change", (event) => {
+  const handlePhotoChange = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -545,7 +546,10 @@ function bindPhotoPreview() {
     });
 
     reader.readAsDataURL(file);
-  });
+  };
+
+  $("#mealPhoto").addEventListener("change", handlePhotoChange);
+  $("#cameraPhoto").addEventListener("change", handlePhotoChange);
 }
 
 function bindEvents() {
