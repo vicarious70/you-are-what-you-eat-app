@@ -1,4 +1,4 @@
-export default function handler(request, response) {
+function handler(request, response) {
   response.statusCode = 200;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
   response.setHeader("Cache-Control", "no-store");
@@ -8,3 +8,5 @@ export default function handler(request, response) {
     model: process.env.OPENAI_MODEL || "gpt-4.1-mini",
   }));
 }
+
+module.exports = handler;

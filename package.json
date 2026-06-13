@@ -2,7 +2,6 @@
   "name": "you-are-what-you-eat-app",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "start": "node server.mjs",
     "dev": "node server.mjs"

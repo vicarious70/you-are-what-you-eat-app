@@ -1,13 +1,5 @@
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "8mb",
-    },
-  },
-};
-
 function sendJson(response, status, payload) {
   response.statusCode = status;
   response.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -153,7 +145,7 @@ async function analyzeWithOpenAI(image, context) {
   return normalizeMealResult(parseModelJson(getResponseText(payload)));
 }
 
-export default async function handler(request, response) {
+async function handler(request, response) {
   try {
     if (request.method === "GET") {
       sendJson(response, 200, {
@@ -189,3 +181,12 @@ export default async function handler(request, response) {
     });
   }
 }
+
+module.exports = handler;
+module.exports.config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "8mb",
+    },
+  },
+};
