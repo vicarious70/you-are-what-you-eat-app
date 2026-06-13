@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { networkInterfaces } from "node:os";
+import { execFileSync } from "node:child_process";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = new URL(".", import.meta.url).pathname;
@@ -18,6 +19,7 @@ const mimeTypes = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
+  ".webmanifest": "application/manifest+json; charset=utf-8",
 };
 
 function getLanUrls() {
@@ -25,6 +27,19 @@ function getLanUrls() {
     .flat()
     .filter((details) => details && details.family === "IPv4" && !details.internal)
     .map((details) => `http://${details.address}:${PORT}/`);
+}
+
+function getFriendlyLocalUrl() {
+  let rawName = process.env.LOCAL_HOSTNAME || "";
+  if (!rawName) {
+    try {
+      rawName = execFileSync("scutil", ["--get", "LocalHostName"], { encoding: "utf8" }).trim();
+    } catch {
+      rawName = "";
+    }
+  }
+  if (!rawName) return "";
+  return `http://${rawName}.local:${PORT}/`;
 }
 
 function sendJson(response, status, payload) {
@@ -211,6 +226,8 @@ const server = createServer((request, response) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`YOU ARE WHAT YOU EAT DNA running at http://localhost:${PORT}/`);
+  const friendlyUrl = getFriendlyLocalUrl();
+  if (friendlyUrl) console.log(`Friendly mobile URL: ${friendlyUrl}`);
   getLanUrls().forEach((url) => console.log(`Mobile/LAN test URL: ${url}`));
   console.log(`Free local vision provider: Ollama ${OLLAMA_MODEL} at ${OLLAMA_URL}`);
 });

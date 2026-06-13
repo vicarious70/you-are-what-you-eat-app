@@ -763,32 +763,20 @@ textarea {
     padding: calc(28px + env(safe-area-inset-top)) 16px 16px;
   }
 
+  .app-header h1 {
+    font-size: 1rem;
+  }
+
   .motto {
-    text-align: left;
-    font-size: 0.88rem;
+    display: none;
   }
 
   .app-shell {
-    padding: 18px 14px 14px;
+    padding: 14px 14px calc(92px + env(safe-area-inset-bottom));
   }
 
   .uploader-hero {
-    gap: 16px;
-    padding: 18px 0 14px;
-  }
-
-  .hero-copy h2 {
-    font-size: 2.25rem;
-    line-height: 1.02;
-  }
-
-  .hero-copy p:last-child {
-    margin-top: 14px;
-    font-size: 0.98rem;
-  }
-
-  .quick-stats {
-    grid-template-columns: 1fr;
+    display: none;
   }
 
   .panel {
@@ -810,7 +798,7 @@ textarea {
   }
 
   .upload-zone {
-    min-height: min(62vh, 430px);
+    min-height: min(48vh, 360px);
   }
 
   .meal-context,
