@@ -157,6 +157,17 @@ function markMissingRequiredFields(missingFields) {
   });
 }
 
+function mobileAwareScrollTo(target) {
+  const viewportWidth = window.visualViewport?.width || window.innerWidth;
+  const topPadding = viewportWidth <= 700 ? 20 : 28;
+  const targetTop = target.getBoundingClientRect().top + window.scrollY - topPadding;
+  window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+}
+
+function scrollToRequiredPrompts() {
+  mobileAwareScrollTo($(".meal-context"));
+}
+
 function clearRequiredContextPrompt() {
   $("#contextAlert").hidden = true;
   $("#contextAlert").textContent = "";
@@ -173,6 +184,7 @@ function showRequiredContextPrompt(missingFields) {
   $("#contextAlert").hidden = false;
   $("#contextAlert").textContent = `Choose ${names} before analysis starts.`;
   markMissingRequiredFields(missingFields);
+  requestAnimationFrame(scrollToRequiredPrompts);
 }
 
 function ensureRequiredContextReady() {
@@ -183,7 +195,6 @@ function ensureRequiredContextReady() {
   }
 
   showRequiredContextPrompt(missingFields);
-  document.getElementById(missingFields[0].id).focus({ preventScroll: false });
   return false;
 }
 
@@ -379,11 +390,7 @@ function renderAnalysisFailure(message) {
 }
 
 function scrollToResults() {
-  const target = $("#analysisNotice");
-  const viewportWidth = window.visualViewport?.width || window.innerWidth;
-  const topPadding = viewportWidth <= 700 ? 20 : 28;
-  const targetTop = target.getBoundingClientRect().top + window.scrollY - topPadding;
-  window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+  mobileAwareScrollTo($("#analysisNotice"));
 }
 
 function renderAnalyzingState() {
@@ -724,9 +731,11 @@ function bindEvents() {
       clearRequiredContextPrompt();
       if (waitingForRequiredContext && selectedMealImage) {
         waitingForRequiredContext = false;
-        renderAnalyzingState();
-        scrollToResults();
-        analyzeMeal();
+        setTimeout(() => {
+          renderAnalyzingState();
+          scrollToResults();
+          analyzeMeal();
+        }, 180);
       }
     });
   });
