@@ -20,7 +20,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  padding-top: env(safe-area-inset-top);
+  padding-top: max(env(safe-area-inset-top), 16px);
   padding-bottom: env(safe-area-inset-bottom);
   color: var(--ink);
   background:
@@ -243,6 +243,25 @@ textarea {
   color: #842d1f;
   border-color: #f2b9aa;
   background: #fff0ec;
+}
+
+.failure-help {
+  border: 1px solid #f2b9aa;
+  border-radius: 8px;
+  padding: 16px;
+  color: #842d1f;
+  background: #fff0ec;
+}
+
+.failure-help h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+
+.failure-help p {
+  margin: 0;
+  line-height: 1.5;
 }
 
 .analysis-notice.loading::before {
@@ -741,7 +760,7 @@ textarea {
     align-items: start;
     flex-direction: column;
     gap: 8px;
-    padding: calc(16px + env(safe-area-inset-top)) 16px 16px;
+    padding: calc(28px + env(safe-area-inset-top)) 16px 16px;
   }
 
   .motto {
@@ -750,7 +769,7 @@ textarea {
   }
 
   .app-shell {
-    padding: 14px;
+    padding: 18px 14px 14px;
   }
 
   .uploader-hero {

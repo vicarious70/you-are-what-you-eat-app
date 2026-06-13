@@ -1,11 +1,13 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
+import { networkInterfaces } from "node:os";
 
 const PORT = Number(process.env.PORT || 5173);
 const ROOT = new URL(".", import.meta.url).pathname;
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llava:latest";
+const HOST = process.env.HOST || "0.0.0.0";
 
 const mimeTypes = {
   ".html": "text/html; charset=utf-8",
@@ -17,6 +19,13 @@ const mimeTypes = {
   ".jpeg": "image/jpeg",
   ".webp": "image/webp",
 };
+
+function getLanUrls() {
+  return Object.values(networkInterfaces())
+    .flat()
+    .filter((details) => details && details.family === "IPv4" && !details.internal)
+    .map((details) => `http://${details.address}:${PORT}/`);
+}
 
 function sendJson(response, status, payload) {
   response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
@@ -138,7 +147,12 @@ ${JSON.stringify(context || {})}
 
   const payload = await response.json();
   const raw = payload.response || "{}";
-  return normalizeMealResult(parseModelJson(raw));
+  try {
+    return normalizeMealResult(parseModelJson(raw));
+  } catch (error) {
+    console.error("Could not parse local vision response:", raw.slice(0, 800));
+    throw error;
+  }
 }
 
 async function handleAnalyzeMeal(request, response) {
@@ -172,6 +186,15 @@ async function handleStatic(request, response) {
 }
 
 const server = createServer((request, response) => {
+  if (request.method === "GET" && request.url === "/api/health") {
+    sendJson(response, 200, {
+      ok: true,
+      model: OLLAMA_MODEL,
+      ollama: OLLAMA_URL,
+    });
+    return;
+  }
+
   if (request.method === "POST" && request.url === "/api/analyze-meal") {
     handleAnalyzeMeal(request, response);
     return;
@@ -186,7 +209,8 @@ const server = createServer((request, response) => {
   response.end("Method not allowed");
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, HOST, () => {
   console.log(`YOU ARE WHAT YOU EAT DNA running at http://localhost:${PORT}/`);
+  getLanUrls().forEach((url) => console.log(`Mobile/LAN test URL: ${url}`));
   console.log(`Free local vision provider: Ollama ${OLLAMA_MODEL} at ${OLLAMA_URL}`);
 });

@@ -274,6 +274,8 @@ function renderEmptyAnalysis(message = "Upload a meal photo to start. No sample 
   clearLoadingTimers();
   setAnalyzeButton(false);
   $("#analysisNotice").classList.remove("loading", "error");
+  $("#failureHelp").hidden = true;
+  $("#plateRead").hidden = false;
   $("#impactScore").className = "impact-score empty";
   $("#impactScore").textContent = "--";
   $("#analysisNotice").textContent = message;
@@ -295,6 +297,8 @@ function renderAnalysisFailure(message) {
   setAnalyzeButton(false);
   $("#analysisNotice").classList.remove("loading");
   $("#analysisNotice").classList.add("error");
+  $("#failureHelp").hidden = false;
+  $("#plateRead").hidden = true;
   $("#impactScore").className = "impact-score empty";
   $("#impactScore").textContent = "--";
   $("#analysisNotice").textContent = message;
@@ -306,7 +310,8 @@ function renderAnalysisFailure(message) {
   $("#vitalSignals").innerHTML = "";
   $("#coachMessage").textContent =
     "No nutrition details are shown because the image analysis failed. This avoids presenting a default estimate as if it came from your photo.";
-  $("#nextSteps").innerHTML = "<li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the local model has warmed up.</li>";
+  $("#nextSteps").innerHTML =
+    "<li>On mobile, open the Mac local server URL, not the GitHub Pages URL.</li><li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the local model has warmed up.</li>";
   $("#confidenceBadge").textContent = "Analysis failed";
   $("#scanStatus").textContent = "Try again";
 }
@@ -319,6 +324,8 @@ function renderAnalyzingState() {
   setAnalyzeButton(true);
   startLoadingMessages();
   $("#analysisNotice").classList.remove("error");
+  $("#failureHelp").hidden = true;
+  $("#plateRead").hidden = false;
   $("#impactScore").className = "impact-score empty";
   $("#impactScore").textContent = "...";
   $("#scanStatus").textContent = "Analyzing";
@@ -420,6 +427,8 @@ function renderVisionAnalysis(result) {
   renderVitalSignals(values);
   renderNextSteps(values);
   renderVisionFoods(result);
+  $("#failureHelp").hidden = true;
+  $("#plateRead").hidden = false;
 
   $("#plateSummary").textContent =
     result.plate_read ||
@@ -432,6 +441,18 @@ function renderVisionAnalysis(result) {
 }
 
 async function requestVisionAnalysis() {
+  const host = window.location.hostname;
+  const isLocalServer =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+
+  if (!isLocalServer) {
+    throw new Error(
+      "Photo analysis needs the local Mac server, but this page is not running from it. On your phone, open the LAN test URL from the Mac server instead of the GitHub Pages link."
+    );
+  }
+
   const response = await fetch("/api/analyze-meal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -453,7 +474,7 @@ async function requestVisionAnalysis() {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || "Vision analysis failed.");
+    throw new Error(payload.error || "Vision analysis failed. Confirm the local server is running and open this app from its localhost or LAN URL.");
   }
 
   return payload;
