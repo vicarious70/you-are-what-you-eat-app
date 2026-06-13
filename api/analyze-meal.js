@@ -1,5 +1,20 @@
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "8mb",
+    },
+  },
+};
+
+function sendJson(response, status, payload) {
+  response.statusCode = status;
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+  response.setHeader("Cache-Control", "no-store");
+  response.end(JSON.stringify(payload));
+}
+
 function normalizeMealResult(result) {
   const calories = Number(result.calories) || 650;
   const calorieMin = Number(result.calorie_min) || Math.round(calories * 0.8);
@@ -139,21 +154,37 @@ async function analyzeWithOpenAI(image, context) {
 }
 
 export default async function handler(request, response) {
-  response.setHeader("Cache-Control", "no-store");
-
-  if (request.method !== "POST") {
-    response.setHeader("Allow", "POST");
-    response.status(405).json({ error: "Method not allowed." });
-    return;
-  }
-
   try {
+    if (request.method === "GET") {
+      sendJson(response, 200, {
+        ok: true,
+        endpoint: "analyze-meal",
+        method: "POST",
+        provider: process.env.OPENAI_API_KEY ? "openai" : "missing-key",
+        model: OPENAI_MODEL,
+      });
+      return;
+    }
+
+    if (request.method === "OPTIONS") {
+      response.statusCode = 204;
+      response.setHeader("Allow", "GET, POST, OPTIONS");
+      response.end();
+      return;
+    }
+
+    if (request.method !== "POST") {
+      response.setHeader("Allow", "GET, POST, OPTIONS");
+      sendJson(response, 405, { error: "Method not allowed." });
+      return;
+    }
+
     const body = await readRequestBody(request);
     const result = await analyzeWithOpenAI(body.image, body.context);
-    response.status(200).json(result);
+    sendJson(response, 200, result);
   } catch (error) {
     console.error("Meal analysis failed:", error);
-    response.status(500).json({
+    sendJson(response, 500, {
       error: error.message || "Hosted meal analysis failed.",
     });
   }
