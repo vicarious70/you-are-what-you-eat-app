@@ -22,6 +22,7 @@ body {
   min-width: 320px;
   padding-top: max(env(safe-area-inset-top), 16px);
   padding-bottom: env(safe-area-inset-bottom);
+  scroll-padding-top: calc(18px + env(safe-area-inset-top));
   color: var(--ink);
   background:
     linear-gradient(180deg, rgba(143, 191, 95, 0.16), transparent 420px),
@@ -411,6 +412,15 @@ textarea {
   background: #fff;
 }
 
+label.needs-choice {
+  color: #842d1f;
+}
+
+label.needs-choice select {
+  border-color: #d86f58;
+  background: #fff7f4;
+}
+
 input,
 select {
   min-height: 44px;
@@ -426,6 +436,18 @@ textarea {
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: 10px;
   margin-top: 14px;
+}
+
+.context-alert {
+  margin-top: 12px;
+  border: 1px solid #e6c46e;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #6e4e00;
+  background: #fff7da;
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.35;
 }
 
 .primary-button,
@@ -753,6 +775,7 @@ textarea {
 @media (max-width: 720px) {
   body {
     background: var(--paper);
+    scroll-padding-top: calc(28px + env(safe-area-inset-top));
   }
 
   .app-header {

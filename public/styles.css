@@ -412,6 +412,15 @@ textarea {
   background: #fff;
 }
 
+label.needs-choice {
+  color: #842d1f;
+}
+
+label.needs-choice select {
+  border-color: #d86f58;
+  background: #fff7f4;
+}
+
 input,
 select {
   min-height: 44px;
@@ -427,6 +436,18 @@ textarea {
   grid-template-columns: minmax(0, 1fr) 112px;
   gap: 10px;
   margin-top: 14px;
+}
+
+.context-alert {
+  margin-top: 12px;
+  border: 1px solid #e6c46e;
+  border-radius: 8px;
+  padding: 12px 14px;
+  color: #6e4e00;
+  background: #fff7da;
+  font-size: 0.9rem;
+  font-weight: 900;
+  line-height: 1.35;
 }
 
 .primary-button,

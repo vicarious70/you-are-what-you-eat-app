@@ -66,6 +66,16 @@ let mealHistory = [];
 let lastAnalysisId = 0;
 let selectedMealImage = "";
 let loadingTimers = [];
+let waitingForRequiredContext = false;
+
+const requiredContextFields = [
+  ["mealType", "meal type"],
+  ["portion", "portion"],
+  ["hunger", "hunger"],
+  ["mealTiming", "timing"],
+  ["plateReference", "size reference"],
+  ["eatenAmount", "amount eaten"],
+];
 
 function setAnalyzeButton(disabled) {
   const button = $("#analyzeMeal");
@@ -124,9 +134,57 @@ function getMealValues() {
   const signals = getDescriptionSignals();
 
   return {
-    values: applyDescriptionSignals(scaleProfile(impactProfiles[type], portionMultipliers[portion]), signals),
+    values: applyDescriptionSignals(
+      scaleProfile(impactProfiles[type] || impactProfiles["Home plate"], portionMultipliers[portion] || 1),
+      signals
+    ),
     signals,
   };
+}
+
+function getMissingRequiredContext() {
+  return requiredContextFields
+    .filter(([id]) => !document.getElementById(id).value)
+    .map(([id, label]) => ({ id, label }));
+}
+
+function markMissingRequiredFields(missingFields) {
+  const missingIds = new Set(missingFields.map(({ id }) => id));
+
+  requiredContextFields.forEach(([id]) => {
+    const select = document.getElementById(id);
+    select.closest("label").classList.toggle("needs-choice", missingIds.has(id));
+  });
+}
+
+function clearRequiredContextPrompt() {
+  $("#contextAlert").hidden = true;
+  $("#contextAlert").textContent = "";
+  markMissingRequiredFields([]);
+}
+
+function showRequiredContextPrompt(missingFields) {
+  const names = missingFields.map(({ label }) => label).join(", ");
+
+  clearLoadingTimers();
+  setAnalyzeButton(false);
+  waitingForRequiredContext = true;
+  $("#scanStatus").textContent = "Details needed";
+  $("#contextAlert").hidden = false;
+  $("#contextAlert").textContent = `Choose ${names} before analysis starts.`;
+  markMissingRequiredFields(missingFields);
+}
+
+function ensureRequiredContextReady() {
+  const missingFields = getMissingRequiredContext();
+  if (!missingFields.length) {
+    clearRequiredContextPrompt();
+    return true;
+  }
+
+  showRequiredContextPrompt(missingFields);
+  document.getElementById(missingFields[0].id).focus({ preventScroll: false });
+  return false;
 }
 
 function impactLevel(values) {
@@ -273,6 +331,7 @@ function renderNextSteps(values) {
 function renderEmptyAnalysis(message = "Upload a meal photo to start. No sample analysis is shown.") {
   clearLoadingTimers();
   setAnalyzeButton(false);
+  waitingForRequiredContext = false;
   $("#analysisNotice").classList.remove("loading", "error");
   $("#failureHelp").hidden = true;
   $("#plateRead").hidden = false;
@@ -320,7 +379,11 @@ function renderAnalysisFailure(message) {
 }
 
 function scrollToResults() {
-  $("#plateRead").scrollIntoView({ behavior: "smooth", block: "start" });
+  const target = $("#analysisNotice");
+  const viewportWidth = window.visualViewport?.width || window.innerWidth;
+  const topPadding = viewportWidth <= 700 ? 20 : 28;
+  const targetTop = target.getBoundingClientRect().top + window.scrollY - topPadding;
+  window.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
 }
 
 function renderAnalyzingState() {
@@ -496,6 +559,10 @@ async function analyzeMeal({ save = true } = {}) {
     return;
   }
 
+  if (!ensureRequiredContextReady()) {
+    return;
+  }
+
   const { values, signals } = getMealValues();
   lastAnalysisId += 1;
   renderAnalyzingState();
@@ -508,6 +575,7 @@ async function analyzeMeal({ save = true } = {}) {
       renderVisionAnalysis(result);
       $("#analysisNotice").classList.remove("error");
       $("#analysisNotice").textContent = `Photo analysis ${lastAnalysisId} complete at ${analyzedAt}. The foods and portions below were estimated from the image.`;
+      scrollToResults();
       if (save) saveToHistory(visionValues);
     } else {
       renderImpact(values);
@@ -523,12 +591,14 @@ async function analyzeMeal({ save = true } = {}) {
         selectedMealImage && window.location.protocol === "file:"
           ? `Photo added, but real food detection needs a server link. Open the hosted or localhost test link to run vision analysis.`
           : `Photo fallback analysis ${lastAnalysisId} complete at ${analyzedAt}. Review your vital information and next step below.`;
+      scrollToResults();
       if (save) saveToHistory(values);
     }
 
     $("#scanStatus").textContent = "Photo analyzed";
   } catch (error) {
     renderAnalysisFailure(error.message || "Vision analysis failed.");
+    scrollToResults();
   } finally {
     clearLoadingTimers();
     setAnalyzeButton(false);
@@ -545,9 +615,11 @@ function clearMeal() {
   $("#cameraPhoto").value = "";
   $("#mealDescription").value = "";
   selectedMealImage = "";
+  waitingForRequiredContext = false;
   $("#preview").removeAttribute("src");
   $(".upload-zone").classList.remove("has-image");
   $("#uploadText").textContent = "Take or upload a meal photo";
+  clearRequiredContextPrompt();
   renderEmptyAnalysis();
 }
 
@@ -620,6 +692,7 @@ function bindPhotoPreview() {
       zone.classList.add("has-image");
       $("#uploadText").textContent = "Retake or replace photo";
       $("#scanStatus").textContent = "Photo added";
+      if (!ensureRequiredContextReady()) return;
       renderAnalyzingState();
       scrollToResults();
       analyzeMeal();
@@ -637,6 +710,26 @@ function bindPhotoPreview() {
 function bindEvents() {
   $("#analyzeMeal").addEventListener("click", () => analyzeMeal());
   $("#clearMeal").addEventListener("click", clearMeal);
+
+  requiredContextFields.forEach(([id]) => {
+    document.getElementById(id).addEventListener("change", () => {
+      const missingFields = getMissingRequiredContext();
+      markMissingRequiredFields(missingFields);
+
+      if (missingFields.length) {
+        if (waitingForRequiredContext) showRequiredContextPrompt(missingFields);
+        return;
+      }
+
+      clearRequiredContextPrompt();
+      if (waitingForRequiredContext && selectedMealImage) {
+        waitingForRequiredContext = false;
+        renderAnalyzingState();
+        scrollToResults();
+        analyzeMeal();
+      }
+    });
+  });
 }
 
 renderPlanner();

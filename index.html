@@ -79,43 +79,48 @@
             </label>
             <label>
               Meal Type
-              <select id="mealType">
+              <select id="mealType" required>
+                <option value="" selected disabled>Choose meal type</option>
                 <option>Home plate</option>
-                <option selected>Restaurant meal</option>
+                <option>Restaurant meal</option>
                 <option>Fast food</option>
                 <option>Holiday meal</option>
               </select>
             </label>
             <label>
               Portion
-              <select id="portion">
+              <select id="portion" required>
+                <option value="" selected disabled>Choose portion</option>
                 <option>Light</option>
-                <option selected>Standard</option>
+                <option>Standard</option>
                 <option>Large</option>
                 <option>Very large</option>
               </select>
             </label>
             <label>
               Hunger Before
-              <select id="hunger">
+              <select id="hunger" required>
+                <option value="" selected disabled>Choose hunger level</option>
                 <option>Not hungry</option>
-                <option selected>Hungry</option>
+                <option>Hungry</option>
                 <option>Very hungry</option>
               </select>
             </label>
             <label>
               Timing
-              <select id="mealTiming">
+              <select id="mealTiming" required>
+                <option value="" selected disabled>Choose timing</option>
                 <option>Breakfast</option>
                 <option>Lunch</option>
-                <option selected>Dinner</option>
+                <option>Dinner</option>
                 <option>Late night</option>
               </select>
             </label>
             <label>
               Size Reference
-              <select id="plateReference">
-                <option selected>Unknown</option>
+              <select id="plateReference" required>
+                <option value="" selected disabled>Choose size reference</option>
+                <option>Unknown</option>
                 <option>Standard dinner plate</option>
                 <option>Small plate or bowl</option>
                 <option>Takeout container</option>
@@ -124,13 +129,17 @@
             </label>
             <label>
               Amount Eaten
-              <select id="eatenAmount">
-                <option selected>All or planned</option>
+              <select id="eatenAmount" required>
+                <option value="" selected disabled>Choose amount eaten</option>
+                <option>All or planned</option>
                 <option>About three quarters</option>
                 <option>About half</option>
                 <option>Less than half</option>
               </select>
             </label>
+          </div>
+          <div id="contextAlert" class="context-alert" hidden>
+            Choose the required meal details before analysis starts.
           </div>
 
           <div class="action-row">
