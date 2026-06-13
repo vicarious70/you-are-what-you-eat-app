@@ -314,7 +314,7 @@ function renderAnalysisFailure(message) {
   $("#coachMessage").textContent =
     "No nutrition details are shown because the image analysis failed. This avoids presenting a default estimate as if it came from your photo.";
   $("#nextSteps").innerHTML =
-    "<li>If this is the public mobile app, confirm the hosted backend has OPENAI_API_KEY set.</li><li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the backend has restarted.</li>";
+    "<li>If this is the public mobile app, confirm the hosted backend has GEMINI_API_KEY set.</li><li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the backend has restarted.</li>";
   $("#confidenceBadge").textContent = "Analysis failed";
   $("#scanStatus").textContent = "Try again";
 }
@@ -424,6 +424,7 @@ function renderVisionAnalysis(result) {
   const values = applyVisionResult(result);
   const confidence = result.confidence || "photo estimate";
   const notes = Array.isArray(result.accuracy_notes) ? result.accuracy_notes : [];
+  const providerName = result.provider === "gemini" ? "Gemini" : result.provider === "openai" ? "OpenAI" : "Vision";
 
   renderImpact(values);
   renderScore(values);
@@ -439,7 +440,7 @@ function renderVisionAnalysis(result) {
   $("#coachMessage").textContent =
     result.coaching ||
     "Here's what happened: this meal has been estimated from the image. Use the next plate to steer the trend, not punish the previous choice.";
-  $("#confidenceBadge").textContent = `Vision: ${confidence}`;
+  $("#confidenceBadge").textContent = `${providerName}: ${confidence}`;
   $("#accuracyNotes").innerHTML = notes.map((note) => `<li>${note}</li>`).join("");
 }
 
@@ -478,7 +479,7 @@ async function requestVisionAnalysis() {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || "Vision analysis failed. Confirm the hosted backend is deployed and the server key is configured.");
+    throw new Error(payload.error || "Vision analysis failed. Confirm the hosted backend is deployed and GEMINI_API_KEY is configured.");
   }
 
   return payload;

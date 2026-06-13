@@ -9,6 +9,8 @@ const PORT = Number(process.env.PORT || 5173);
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llava:latest";
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const HOST = process.env.HOST || "0.0.0.0";
@@ -72,6 +74,18 @@ function dataUrlToBase64(dataUrl) {
   const match = String(dataUrl || "").match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
   if (!match) return "";
   return match[1];
+}
+
+function parseImageDataUrl(image) {
+  const match = String(image || "").match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error("No valid meal image was received.");
+  }
+
+  return {
+    mimeType: match[1],
+    base64: match[2],
+  };
 }
 
 function normalizeMealResult(result) {
@@ -147,6 +161,12 @@ ${JSON.stringify(context || {})}
 function getResponseText(payload) {
   if (typeof payload.output_text === "string") return payload.output_text;
 
+  const geminiText = payload.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || "")
+    .join("\n")
+    .trim();
+  if (geminiText) return geminiText;
+
   const chunks = [];
   for (const item of payload.output || []) {
     for (const content of item.content || []) {
@@ -155,6 +175,57 @@ function getResponseText(payload) {
   }
 
   return chunks.join("\n");
+}
+
+async function analyzeWithGemini(image, context) {
+  if (!GEMINI_API_KEY) {
+    throw new Error("Gemini API key is not configured on the server.");
+  }
+
+  const { mimeType, base64 } = parseImageDataUrl(image);
+  const modelPath = GEMINI_MODEL.replace(/^models\//, "");
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelPath}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": GEMINI_API_KEY,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64,
+                },
+              },
+              { text: buildMealPrompt(context) },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const details = await response.text();
+    console.error("Gemini vision request failed:", details.slice(0, 800));
+    throw new Error("Gemini vision analysis failed. Check the server API key, model access, and API restrictions.");
+  }
+
+  const payload = await response.json();
+  return {
+    ...normalizeMealResult(parseModelJson(getResponseText(payload))),
+    provider: "gemini",
+    model: GEMINI_MODEL,
+  };
 }
 
 async function analyzeWithOpenAI(image, context) {
@@ -194,7 +265,11 @@ async function analyzeWithOpenAI(image, context) {
 
   const payload = await response.json();
   const raw = getResponseText(payload);
-  return normalizeMealResult(parseModelJson(raw));
+  return {
+    ...normalizeMealResult(parseModelJson(raw)),
+    provider: "openai",
+    model: OPENAI_MODEL,
+  };
 }
 
 async function analyzeWithOllama(image, context) {
@@ -236,9 +311,11 @@ async function analyzeWithOllama(image, context) {
 async function handleAnalyzeMeal(request, response) {
   try {
     const body = JSON.parse(await readBody(request));
-    const result = OPENAI_API_KEY
-      ? await analyzeWithOpenAI(body.image, body.context)
-      : await analyzeWithOllama(body.image, body.context);
+    const result = GEMINI_API_KEY
+      ? await analyzeWithGemini(body.image, body.context)
+      : OPENAI_API_KEY
+        ? await analyzeWithOpenAI(body.image, body.context)
+        : await analyzeWithOllama(body.image, body.context);
     sendJson(response, 200, result);
   } catch (error) {
     sendJson(response, 503, {
@@ -272,8 +349,8 @@ const server = createServer((request, response) => {
   if (request.method === "GET" && request.url === "/api/health") {
     sendJson(response, 200, {
       ok: true,
-      provider: OPENAI_API_KEY ? "openai" : "ollama",
-      model: OPENAI_API_KEY ? OPENAI_MODEL : OLLAMA_MODEL,
+      provider: GEMINI_API_KEY ? "gemini" : OPENAI_API_KEY ? "openai" : "ollama",
+      model: GEMINI_API_KEY ? GEMINI_MODEL : OPENAI_API_KEY ? OPENAI_MODEL : OLLAMA_MODEL,
       ollama: OLLAMA_URL,
     });
     return;
@@ -298,7 +375,9 @@ server.listen(PORT, HOST, () => {
   const friendlyUrl = getFriendlyLocalUrl();
   if (friendlyUrl) console.log(`Friendly mobile URL: ${friendlyUrl}`);
   getLanUrls().forEach((url) => console.log(`Mobile/LAN test URL: ${url}`));
-  if (OPENAI_API_KEY) {
+  if (GEMINI_API_KEY) {
+    console.log(`Vision provider: Gemini ${GEMINI_MODEL}`);
+  } else if (OPENAI_API_KEY) {
     console.log(`Vision provider: OpenAI ${OPENAI_MODEL}`);
   } else {
     console.log(`Vision provider: Ollama ${OLLAMA_MODEL} at ${OLLAMA_URL}`);

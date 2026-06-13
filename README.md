@@ -44,8 +44,8 @@ without depending on the Mac or Ollama.
 In Vercel, add these environment variables before redeploying:
 
 ```sh
-OPENAI_API_KEY=your_new_key_here
-OPENAI_MODEL=gpt-4.1-mini
+GEMINI_API_KEY=your_new_gemini_key_here
+GEMINI_MODEL=gemini-3.5-flash
 ```
 
 Do not paste the API key into `index.html`, `app.js`, or any public file. The key
@@ -57,19 +57,21 @@ Test links after deploy:
 - Backend health: `https://your-vercel-project.vercel.app/api/health`
 
 The `/api/health` endpoint should return JSON with `"ok": true` and
-`"provider": "openai"`. If it says `"missing-key"`, the Vercel environment
+`"provider": "gemini"`. If it says `"missing-key"`, the Vercel environment
 variable is not set for the deployed environment yet.
 
-## Running With OpenAI Vision
+## Running With Gemini Vision
 
 Use this for the real mobile path. Keep the API key on the server only.
 
 ```sh
-export OPENAI_API_KEY="your_new_key_here"
+export GEMINI_API_KEY="your_new_gemini_key_here"
 node server.mjs
 ```
 
-The phone opens the Mac/server URL, uploads the photo, and the backend calls OpenAI. Do not put the API key in `index.html`, `app.js`, or any mobile frontend file.
+The phone opens the Mac/server URL, uploads the photo, and the backend calls Gemini. Do not put the API key in `index.html`, `app.js`, or any mobile frontend file.
+
+If `GEMINI_API_KEY` is not set but `OPENAI_API_KEY` is set, the backend can still use OpenAI as a fallback. If neither hosted key is set, local development falls back to Ollama.
 
 ## Running With Free Local Vision
 
@@ -82,7 +84,7 @@ The app can use a local, no-per-use-cost vision backend through Ollama.
 ollama pull llava:latest
 ```
 
-3. Start this app from the project folder without `OPENAI_API_KEY`:
+3. Start this app from the project folder without `GEMINI_API_KEY` or `OPENAI_API_KEY`:
 
 ```sh
 node server.mjs

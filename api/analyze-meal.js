@@ -1,3 +1,4 @@
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
 function sendJson(response, status, payload) {
@@ -26,6 +27,18 @@ function normalizeMealResult(result) {
     plate_read: result.plate_read || "",
     coaching: result.coaching || "",
     accuracy_notes: Array.isArray(result.accuracy_notes) ? result.accuracy_notes : [],
+  };
+}
+
+function parseImageDataUrl(image) {
+  const match = String(image || "").match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
+  if (!match) {
+    throw new Error("No valid meal image was received.");
+  }
+
+  return {
+    mimeType: match[1],
+    base64: match[2],
   };
 }
 
@@ -80,6 +93,12 @@ ${JSON.stringify(context || {})}
 function getResponseText(payload) {
   if (typeof payload.output_text === "string") return payload.output_text;
 
+  const geminiText = payload.candidates?.[0]?.content?.parts
+    ?.map((part) => part.text || "")
+    .join("\n")
+    .trim();
+  if (geminiText) return geminiText;
+
   const chunks = [];
   for (const item of payload.output || []) {
     for (const content of item.content || []) {
@@ -104,6 +123,57 @@ async function readRequestBody(request) {
   }
 
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
+async function analyzeWithGemini(image, context) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is missing in the hosted backend environment.");
+  }
+
+  const { mimeType, base64 } = parseImageDataUrl(image);
+  const modelPath = GEMINI_MODEL.replace(/^models\//, "");
+
+  const geminiResponse = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${modelPath}:generateContent`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY,
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                inline_data: {
+                  mime_type: mimeType,
+                  data: base64,
+                },
+              },
+              { text: buildMealPrompt(context) },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseMimeType: "application/json",
+        },
+      }),
+    }
+  );
+
+  if (!geminiResponse.ok) {
+    const details = await geminiResponse.text();
+    console.error("Gemini vision request failed:", details.slice(0, 800));
+    throw new Error("Gemini vision analysis failed. Check GEMINI_API_KEY, model access, and API restrictions.");
+  }
+
+  const payload = await geminiResponse.json();
+  return {
+    ...normalizeMealResult(parseModelJson(getResponseText(payload))),
+    provider: "gemini",
+    model: GEMINI_MODEL,
+  };
 }
 
 async function analyzeWithOpenAI(image, context) {
@@ -142,7 +212,11 @@ async function analyzeWithOpenAI(image, context) {
   }
 
   const payload = await openaiResponse.json();
-  return normalizeMealResult(parseModelJson(getResponseText(payload)));
+  return {
+    ...normalizeMealResult(parseModelJson(getResponseText(payload))),
+    provider: "openai",
+    model: OPENAI_MODEL,
+  };
 }
 
 async function handler(request, response) {
@@ -152,8 +226,12 @@ async function handler(request, response) {
         ok: true,
         endpoint: "analyze-meal",
         method: "POST",
-        provider: process.env.OPENAI_API_KEY ? "openai" : "missing-key",
-        model: OPENAI_MODEL,
+        provider: process.env.GEMINI_API_KEY
+          ? "gemini"
+          : process.env.OPENAI_API_KEY
+            ? "openai"
+            : "missing-key",
+        model: process.env.GEMINI_API_KEY ? GEMINI_MODEL : OPENAI_MODEL,
       });
       return;
     }
@@ -172,7 +250,15 @@ async function handler(request, response) {
     }
 
     const body = await readRequestBody(request);
-    const result = await analyzeWithOpenAI(body.image, body.context);
+    let result;
+    if (process.env.GEMINI_API_KEY) {
+      result = await analyzeWithGemini(body.image, body.context);
+    } else if (process.env.OPENAI_API_KEY) {
+      result = await analyzeWithOpenAI(body.image, body.context);
+    } else {
+      throw new Error("GEMINI_API_KEY is missing in the hosted backend environment.");
+    }
+
     sendJson(response, 200, result);
   } catch (error) {
     console.error("Meal analysis failed:", error);
