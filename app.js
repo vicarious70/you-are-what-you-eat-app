@@ -286,7 +286,7 @@ function renderEmptyAnalysis(message = "Upload a meal photo to start. No sample 
   $("#impactCards").innerHTML = "";
   $("#vitalSignals").innerHTML = "";
   $("#coachMessage").textContent =
-    "Take or upload a meal photo, then press Analyze meal. The app will use the local vision backend instead of a canned sample.";
+    "Take or upload a meal photo. The app will automatically send it to the vision backend instead of showing a canned sample.";
   $("#nextSteps").innerHTML = "";
   $("#confidenceBadge").textContent = "No analysis yet";
   $("#scanStatus").textContent = "Ready";
@@ -302,8 +302,11 @@ function renderAnalysisFailure(message) {
   $("#impactScore").className = "impact-score empty";
   $("#impactScore").textContent = "--";
   $("#analysisNotice").textContent = message;
+  $(".failure-help h3").textContent = "Photo analysis did not complete";
+  $(".failure-help p").textContent =
+    "Retake the photo from above with the full plate visible, or try Analyze again after the backend is ready.";
   $("#plateSummary").textContent =
-    "The photo was received, but the local vision model did not return a usable meal analysis. Try Analyze again, or retake the photo with the full plate visible and better lighting.";
+    "The photo was received, but the vision backend did not return a usable meal analysis. Try Analyze again, or retake the photo with the full plate visible and better lighting.";
   $("#detectedFoods").innerHTML = '<span class="muted-chip">No verified food detection</span>';
   $("#accuracyNotes").innerHTML = "";
   $("#impactCards").innerHTML = "";
@@ -311,7 +314,7 @@ function renderAnalysisFailure(message) {
   $("#coachMessage").textContent =
     "No nutrition details are shown because the image analysis failed. This avoids presenting a default estimate as if it came from your photo.";
   $("#nextSteps").innerHTML =
-    "<li>On mobile, open the Mac local server URL, not the GitHub Pages URL.</li><li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the local model has warmed up.</li>";
+    "<li>If this is the public mobile app, confirm the hosted backend has OPENAI_API_KEY set.</li><li>Retake the photo from above with the whole plate in frame.</li><li>Use Analyze again after the backend has restarted.</li>";
   $("#confidenceBadge").textContent = "Analysis failed";
   $("#scanStatus").textContent = "Try again";
 }
@@ -330,7 +333,7 @@ function renderAnalyzingState() {
   $("#impactScore").textContent = "...";
   $("#scanStatus").textContent = "Analyzing";
   $("#analysisNotice").textContent =
-    "Analyzing your meal photo now. The local vision model is identifying foods, estimating portions, checking calorie range, and preparing next steps.";
+    "Analyzing your meal photo now. The vision backend is identifying foods, estimating portions, checking calorie range, and preparing next steps.";
   $("#analysisNotice").classList.add("loading");
   $("#plateSummary").textContent =
     "Reading the image for visible foods, portion clues, sauces, sides, and size references.";
@@ -339,7 +342,7 @@ function renderAnalyzingState() {
   $("#impactCards").innerHTML = "";
   $("#vitalSignals").innerHTML = "";
   $("#coachMessage").textContent =
-    "This may take a little longer the first time while the local model warms up.";
+    "This may take a little longer the first time while the hosted function starts.";
   $("#nextSteps").innerHTML = "";
   $("#confidenceBadge").textContent = "Analyzing photo";
 }
@@ -442,14 +445,15 @@ function renderVisionAnalysis(result) {
 
 async function requestVisionAnalysis() {
   const host = window.location.hostname;
-  const isLocalServer =
-    host === "localhost" ||
-    host === "127.0.0.1" ||
-    /^192\.168\.|^10\.|^172\.(1[6-9]|2\d|3[0-1])\./.test(host);
+  const protocol = window.location.protocol;
 
-  if (!isLocalServer) {
+  if (protocol === "file:") {
+    throw new Error("Photo analysis needs the app to be opened from a server link, not directly from the file.");
+  }
+
+  if (host.endsWith("github.io")) {
     throw new Error(
-      "Photo analysis needs the local Mac server, but this page is not running from it. On your phone, open the LAN test URL from the Mac server instead of the GitHub Pages link."
+      "This GitHub Pages link is static and has no private backend. Open the hosted app URL that includes the /api/analyze-meal function."
     );
   }
 
@@ -474,7 +478,7 @@ async function requestVisionAnalysis() {
 
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(payload.error || "Vision analysis failed. Confirm the local server is running and open this app from its localhost or LAN URL.");
+    throw new Error(payload.error || "Vision analysis failed. Confirm the hosted backend is deployed and the server key is configured.");
   }
 
   return payload;
@@ -516,7 +520,7 @@ async function analyzeMeal({ save = true } = {}) {
       $("#analysisNotice").classList.remove("error");
       $("#analysisNotice").textContent =
         selectedMealImage && window.location.protocol === "file:"
-          ? `Photo added, but real food detection needs the local server link. Open the localhost test link to run vision analysis.`
+          ? `Photo added, but real food detection needs a server link. Open the hosted or localhost test link to run vision analysis.`
           : `Photo fallback analysis ${lastAnalysisId} complete at ${analyzedAt}. Review your vital information and next step below.`;
       if (save) saveToHistory(values);
     }
@@ -546,6 +550,44 @@ function clearMeal() {
   renderEmptyAnalysis();
 }
 
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener("load", () => resolve(reader.result));
+    reader.addEventListener("error", () => reject(new Error("Could not read the selected photo.")));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", () => reject(new Error("Could not prepare the selected photo.")));
+    image.src = dataUrl;
+  });
+}
+
+async function resizeMealImageFile(file) {
+  const originalDataUrl = await readFileAsDataUrl(file);
+  const image = await loadImage(originalDataUrl);
+  const maxDimension = 1280;
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+
+  if (scale === 1 && file.size < 1_000_000) {
+    return originalDataUrl;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
 function renderPlanner() {
   $("#weekPlanner").innerHTML = days
     .map(
@@ -563,15 +605,16 @@ function renderPlanner() {
 function bindPhotoPreview() {
   const zone = $(".upload-zone");
 
-  const handlePhotoChange = (event) => {
+  const handlePhotoChange = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     const preview = $("#preview");
-    const reader = new FileReader();
+    $("#scanStatus").textContent = "Preparing photo";
+    setAnalyzeButton(true);
 
-    reader.addEventListener("load", () => {
-      selectedMealImage = reader.result;
+    try {
+      selectedMealImage = await resizeMealImageFile(file);
       preview.src = selectedMealImage;
       zone.classList.add("has-image");
       $("#uploadText").textContent = "Retake or replace photo";
@@ -579,9 +622,11 @@ function bindPhotoPreview() {
       renderAnalyzingState();
       scrollToResults();
       analyzeMeal();
-    });
-
-    reader.readAsDataURL(file);
+    } catch (error) {
+      setAnalyzeButton(false);
+      renderAnalysisFailure(error.message || "The selected photo could not be prepared.");
+      scrollToResults();
+    }
   };
 
   $("#mealPhoto").addEventListener("change", handlePhotoChange);

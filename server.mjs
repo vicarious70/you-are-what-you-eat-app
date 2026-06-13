@@ -3,11 +3,14 @@ import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { networkInterfaces } from "node:os";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.PORT || 5173);
-const ROOT = new URL(".", import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llava:latest";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 const HOST = process.env.HOST || "0.0.0.0";
 
 const mimeTypes = {
@@ -43,7 +46,10 @@ function getFriendlyLocalUrl() {
 }
 
 function sendJson(response, status, payload) {
-  response.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+  response.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
   response.end(JSON.stringify(payload));
 }
 
@@ -103,14 +109,9 @@ function parseModelJson(raw) {
   }
 }
 
-async function analyzeWithOllama(image, context) {
-  const imageBase64 = dataUrlToBase64(image);
-  if (!imageBase64) {
-    throw new Error("No valid meal image was received.");
-  }
-
-  const prompt = `
-Analyze this meal photo for the YOU ARE WHAT YOU EAT DNA app.
+function buildMealPrompt(context) {
+  return `
+Analyze this meal photo for the You Are What You Eat App.
 
 Accuracy rules:
 - Identify each visible food item first, then estimate the consumed portion for each item.
@@ -141,6 +142,68 @@ Return only JSON with this exact shape:
 Use this context to tighten portion assumptions:
 ${JSON.stringify(context || {})}
 `;
+}
+
+function getResponseText(payload) {
+  if (typeof payload.output_text === "string") return payload.output_text;
+
+  const chunks = [];
+  for (const item of payload.output || []) {
+    for (const content of item.content || []) {
+      if (typeof content.text === "string") chunks.push(content.text);
+    }
+  }
+
+  return chunks.join("\n");
+}
+
+async function analyzeWithOpenAI(image, context) {
+  if (!OPENAI_API_KEY) {
+    throw new Error("OpenAI API key is not configured on the server.");
+  }
+
+  if (!String(image || "").startsWith("data:image/")) {
+    throw new Error("No valid meal image was received.");
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: buildMealPrompt(context) },
+            { type: "input_image", image_url: image },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const details = await response.text();
+    console.error("OpenAI vision request failed:", details.slice(0, 800));
+    throw new Error("OpenAI vision analysis failed. Check the server API key, billing, and model access.");
+  }
+
+  const payload = await response.json();
+  const raw = getResponseText(payload);
+  return normalizeMealResult(parseModelJson(raw));
+}
+
+async function analyzeWithOllama(image, context) {
+  const imageBase64 = dataUrlToBase64(image);
+  if (!imageBase64) {
+    throw new Error("No valid meal image was received.");
+  }
+
+  const prompt = buildMealPrompt(context);
 
   const response = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: "POST",
@@ -173,7 +236,9 @@ ${JSON.stringify(context || {})}
 async function handleAnalyzeMeal(request, response) {
   try {
     const body = JSON.parse(await readBody(request));
-    const result = await analyzeWithOllama(body.image, body.context);
+    const result = OPENAI_API_KEY
+      ? await analyzeWithOpenAI(body.image, body.context)
+      : await analyzeWithOllama(body.image, body.context);
     sendJson(response, 200, result);
   } catch (error) {
     sendJson(response, 503, {
@@ -192,7 +257,10 @@ async function handleStatic(request, response) {
 
   try {
     const content = await readFile(filePath);
-    response.writeHead(200, { "Content-Type": mimeTypes[extension] || "application/octet-stream" });
+    response.writeHead(200, {
+      "Content-Type": mimeTypes[extension] || "application/octet-stream",
+      "Cache-Control": "no-store",
+    });
     response.end(content);
   } catch {
     response.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
@@ -204,7 +272,8 @@ const server = createServer((request, response) => {
   if (request.method === "GET" && request.url === "/api/health") {
     sendJson(response, 200, {
       ok: true,
-      model: OLLAMA_MODEL,
+      provider: OPENAI_API_KEY ? "openai" : "ollama",
+      model: OPENAI_API_KEY ? OPENAI_MODEL : OLLAMA_MODEL,
       ollama: OLLAMA_URL,
     });
     return;
@@ -225,9 +294,13 @@ const server = createServer((request, response) => {
 });
 
 server.listen(PORT, HOST, () => {
-  console.log(`YOU ARE WHAT YOU EAT DNA running at http://localhost:${PORT}/`);
+  console.log(`You Are What You Eat App running at http://localhost:${PORT}/`);
   const friendlyUrl = getFriendlyLocalUrl();
   if (friendlyUrl) console.log(`Friendly mobile URL: ${friendlyUrl}`);
   getLanUrls().forEach((url) => console.log(`Mobile/LAN test URL: ${url}`));
-  console.log(`Free local vision provider: Ollama ${OLLAMA_MODEL} at ${OLLAMA_URL}`);
+  if (OPENAI_API_KEY) {
+    console.log(`Vision provider: OpenAI ${OPENAI_MODEL}`);
+  } else {
+    console.log(`Vision provider: Ollama ${OLLAMA_MODEL} at ${OLLAMA_URL}`);
+  }
 });

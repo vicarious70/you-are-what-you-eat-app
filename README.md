@@ -1,4 +1,4 @@
-# YOU ARE WHAT YOU EAT(TM) DNA
+# You Are What You Eat App
 
 Foundation Brain v1.0 prototype.
 
@@ -23,9 +23,53 @@ This workspace contains a static MVP for a Health DNA Engine. It is not a calori
 - 7-day planner
 - AI-style coaching and next-step guidance
 
-## Running The Prototype
+## Running The App
 
 Open `index.html` in a browser. No build step is required.
+
+For meal photo analysis, run the backend server:
+
+```sh
+node server.mjs
+```
+
+Then open `http://localhost:5173/`.
+
+## Hosted Mobile Backend
+
+For the real mobile version, deploy this folder to Vercel. The hosted app uses
+`api/analyze-meal.js` as a serverless backend, so phones can analyze meal photos
+without depending on the Mac or Ollama.
+
+In Vercel, add these environment variables before redeploying:
+
+```sh
+OPENAI_API_KEY=your_new_key_here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Do not paste the API key into `index.html`, `app.js`, or any public file. The key
+must live only in Vercel's Environment Variables.
+
+Test links after deploy:
+
+- App: `https://your-vercel-project.vercel.app/`
+- Backend health: `https://your-vercel-project.vercel.app/api/health`
+
+The `/api/health` endpoint should return JSON with `"ok": true` and
+`"provider": "openai"`. If it says `"missing-key"`, the Vercel environment
+variable is not set for the deployed environment yet.
+
+## Running With OpenAI Vision
+
+Use this for the real mobile path. Keep the API key on the server only.
+
+```sh
+export OPENAI_API_KEY="your_new_key_here"
+node server.mjs
+```
+
+The phone opens the Mac/server URL, uploads the photo, and the backend calls OpenAI. Do not put the API key in `index.html`, `app.js`, or any mobile frontend file.
 
 ## Running With Free Local Vision
 
@@ -38,7 +82,7 @@ The app can use a local, no-per-use-cost vision backend through Ollama.
 ollama pull llava:latest
 ```
 
-3. Start this app from the project folder:
+3. Start this app from the project folder without `OPENAI_API_KEY`:
 
 ```sh
 node server.mjs
@@ -48,4 +92,4 @@ node server.mjs
 
 When a meal photo is uploaded from the localhost app, the browser sends it to the local backend at `/api/analyze-meal`. The backend sends the image to Ollama running on your computer and returns estimated foods, portions, macros, sodium, sugar, glucose impact, water retention impact, and coaching.
 
-If Ollama is not installed or the model has not been pulled, the app will fall back to the prototype estimate and show a clear message.
+If Ollama is not installed or the model has not been pulled, the app shows a clear analysis failure message and does not display fake nutrition results.
