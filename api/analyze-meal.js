@@ -184,6 +184,7 @@ async function handler(request, response) {
 
 module.exports = handler;
 module.exports.config = {
+  maxDuration: 30,
   api: {
     bodyParser: {
       sizeLimit: "8mb",

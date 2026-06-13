@@ -1,4 +1,29 @@
 {
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1.js"
+    },
+    {
+      "src": "/",
+      "dest": "/public/index.html"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -9,10 +34,5 @@
         }
       ]
     }
-  ],
-  "functions": {
-    "api/analyze-meal.js": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }

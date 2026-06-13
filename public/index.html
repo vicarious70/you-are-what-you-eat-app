@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>You Are What You Eat App</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">FOUNDATION BRAIN v1.0</p>
+        <h1>You Are What You Eat<span>™</span> App</h1>
+      </div>
+      <p class="motto">Today's plate becomes tomorrow's body.</p>
+    </header>
+
+    <main class="app-shell">
+      <section class="uploader-hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Meal Uploader</p>
+          <h2>Upload a plate. Understand the future it points toward.</h2>
+          <p>
+            The core loop is simple: add the meal, add context, see what happened,
+            why it happened, where it is leading, and what to do next.
+          </p>
+        </div>
+        <div class="quick-stats" aria-label="Meal uploader principles">
+          <div>
+            <strong>Photo first</strong>
+            <span>No weighing required</span>
+          </div>
+          <div>
+            <strong>Trend aware</strong>
+            <span>One meal is not judged alone</span>
+          </div>
+          <div>
+            <strong>No shame</strong>
+            <span>Consequences, tradeoffs, adjustments</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="meal-workspace">
+        <article class="panel upload-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Step 1</p>
+              <h2>Upload Meal</h2>
+            </div>
+            <span id="scanStatus" class="scan-status">Ready</span>
+          </div>
+
+          <div class="upload-zone">
+            <img id="preview" alt="" />
+            <span id="uploadText">Take or upload a meal photo</span>
+          </div>
+
+          <div class="photo-actions">
+            <label class="photo-action" for="cameraPhoto">
+              Take photo
+              <input type="file" id="cameraPhoto" accept="image/*" capture="environment" />
+            </label>
+            <label class="photo-action" for="mealPhoto">
+              Upload photo
+              <input type="file" id="mealPhoto" accept="image/*" />
+            </label>
+          </div>
+
+          <div class="meal-context">
+            <label class="wide-field">
+              Optional notes
+              <textarea
+                id="mealDescription"
+                rows="3"
+                placeholder="Optional: sauce on the side, half eaten, extra cheese, shared fries"
+              ></textarea>
+            </label>
+            <label>
+              Meal Type
+              <select id="mealType">
+                <option>Home plate</option>
+                <option selected>Restaurant meal</option>
+                <option>Fast food</option>
+                <option>Holiday meal</option>
+              </select>
+            </label>
+            <label>
+              Portion
+              <select id="portion">
+                <option>Light</option>
+                <option selected>Standard</option>
+                <option>Large</option>
+                <option>Very large</option>
+              </select>
+            </label>
+            <label>
+              Hunger Before
+              <select id="hunger">
+                <option>Not hungry</option>
+                <option selected>Hungry</option>
+                <option>Very hungry</option>
+              </select>
+            </label>
+            <label>
+              Timing
+              <select id="mealTiming">
+                <option>Breakfast</option>
+                <option>Lunch</option>
+                <option selected>Dinner</option>
+                <option>Late night</option>
+              </select>
+            </label>
+            <label>
+              Size Reference
+              <select id="plateReference">
+                <option selected>Unknown</option>
+                <option>Standard dinner plate</option>
+                <option>Small plate or bowl</option>
+                <option>Takeout container</option>
+                <option>Hand or fork visible</option>
+              </select>
+            </label>
+            <label>
+              Amount Eaten
+              <select id="eatenAmount">
+                <option selected>All or planned</option>
+                <option>About three quarters</option>
+                <option>About half</option>
+                <option>Less than half</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="action-row">
+            <button id="analyzeMeal" class="primary-button" type="button">Analyze again</button>
+            <button id="clearMeal" class="secondary-button" type="button">Clear</button>
+          </div>
+        </article>
+
+        <article class="panel result-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Step 2</p>
+              <h2>Meal DNA Result</h2>
+            </div>
+            <div id="impactScore" class="impact-score">--</div>
+          </div>
+
+          <div id="analysisNotice" class="analysis-notice">
+            Ready for a meal photo or plate description.
+          </div>
+
+          <div id="failureHelp" class="failure-help" hidden>
+            <h3>Photo analysis did not complete</h3>
+            <p>
+              Retake the photo from above with the full plate visible, or try
+              Analyze again after the backend is ready.
+            </p>
+          </div>
+
+          <div id="plateRead" class="plate-read">
+            <div class="plate">
+              <span class="protein">Protein</span>
+              <span class="plants">Plants</span>
+              <span class="energy">Energy</span>
+              <span class="fat">Fats</span>
+            </div>
+            <div>
+              <p class="eyebrow">Estimated Plate Read</p>
+              <p id="plateSummary">
+                Upload a meal to estimate portion balance, macro signals, sodium,
+                glucose impact, and tomorrow's likely scale noise.
+              </p>
+              <div id="detectedFoods" class="detected-foods"></div>
+              <ul id="accuracyNotes" class="accuracy-notes"></ul>
+            </div>
+          </div>
+
+          <div id="impactCards" class="impact-cards"></div>
+
+          <div class="vital-panel">
+            <div class="panel-heading compact-heading">
+              <div>
+                <p class="eyebrow">Vital Information</p>
+                <h2>What This Meal May Do</h2>
+              </div>
+              <span id="confidenceBadge" class="scan-status">Photo estimate</span>
+            </div>
+            <div id="vitalSignals" class="vital-signals"></div>
+          </div>
+
+          <div class="result-grid">
+            <div class="coach-box">
+              <p class="eyebrow">What It Means</p>
+              <p id="coachMessage">
+                Add a meal and press analyze to see what happened, why it happened,
+                and the next best adjustment.
+              </p>
+            </div>
+            <div class="next-step-box">
+              <p class="eyebrow">Next Step</p>
+              <ul id="nextSteps"></ul>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="support-grid">
+        <article class="panel history-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Meal History</p>
+              <h2>Recent Uploads</h2>
+            </div>
+          </div>
+          <div id="mealHistory" class="meal-history"></div>
+        </article>
+
+        <article class="panel profile-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Health DNA</p>
+              <h2>Personal Context</h2>
+            </div>
+          </div>
+          <form id="profileForm" class="profile-form">
+            <label>
+              Weight
+              <input type="number" id="weight" min="70" max="500" value="182" />
+            </label>
+            <label>
+              Primary Goal
+              <select id="goal">
+                <option selected>Fat loss</option>
+                <option>Glucose stability</option>
+                <option>Heart health</option>
+                <option>Strength and muscle</option>
+                <option>General wellness</option>
+              </select>
+            </label>
+            <label>
+              Activity
+              <select id="activity">
+                <option>Light walking</option>
+                <option selected>Moderate activity</option>
+                <option>Resistance training</option>
+                <option>High activity</option>
+              </select>
+            </label>
+            <label>
+              Preference
+              <select id="preference">
+                <option selected>Flexible</option>
+                <option>Higher protein</option>
+                <option>Lower sodium</option>
+                <option>Budget-focused</option>
+                <option>Restaurant-friendly</option>
+              </select>
+            </label>
+          </form>
+        </article>
+
+        <article class="panel planner-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">7-Day Planner</p>
+              <h2>Recovery Trend</h2>
+            </div>
+          </div>
+          <div id="weekPlanner" class="week-planner"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
