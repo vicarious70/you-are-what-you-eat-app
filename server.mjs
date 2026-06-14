@@ -281,7 +281,12 @@ async function handleAnalyzeMeal(request, response) {
 async function handleStatic(request, response) {
   const requestUrl = new URL(request.url, `http://localhost:${PORT}`);
   const safePath = normalize(decodeURIComponent(requestUrl.pathname)).replace(/^(\.\.[/\\])+/, "");
-  const filePath = join(ROOT, safePath === "/" ? "index.html" : safePath);
+
+  // The front-end lives in public/; the browser-importable engine lives in
+  // engine/. Everything else (the app) is served from public/. This mirrors
+  // vercel.json so local dev and production resolve paths identically.
+  const baseDir = safePath.startsWith("/engine/") ? ROOT : join(ROOT, "public");
+  const filePath = join(baseDir, safePath === "/" ? "index.html" : safePath);
   const extension = extname(filePath);
 
   try {

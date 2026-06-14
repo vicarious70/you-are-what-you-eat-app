@@ -1,8 +1,0 @@
-{
-  "name": "You Are What You Eat App",
-  "short_name": "YAWYE App",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#fbfbf7",
-  "theme_color": "#2f6f4e"
-}

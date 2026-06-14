@@ -872,6 +872,226 @@ textarea {
   }
 }
 
+/* ===================== Health DNA screens (tabs) ===================== */
+
+.tab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px clamp(14px, 4vw, 56px);
+  border-bottom: 1px solid var(--line);
+  background: rgba(251, 251, 247, 0.92);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.tab {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab:hover {
+  border-color: var(--leaf);
+}
+
+.tab.is-active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+
+.screen {
+  display: none;
+}
+
+.screen.is-active {
+  display: grid;
+  gap: 14px;
+}
+
+.muted {
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.checkbox-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+}
+
+.checkbox-field input {
+  width: 20px;
+  height: 20px;
+  min-height: 0;
+}
+
+/* four-question grid */
+.qa-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.qa-card {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcf8;
+}
+
+.qa-card p:not(.eyebrow) {
+  margin: 6px 0 0;
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.qa-card ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink);
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.qa-card li + li {
+  margin-top: 6px;
+}
+
+/* health DNA lists */
+.dna-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.eyebrow.good {
+  color: var(--green);
+}
+
+.eyebrow.bad {
+  color: var(--tomato);
+}
+
+.dna-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.dna-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fbfcf8;
+  line-height: 1.4;
+}
+
+.dna-list li.muted {
+  color: var(--muted);
+  justify-content: flex-start;
+}
+
+.conf {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  white-space: nowrap;
+  background: var(--line);
+  color: var(--muted);
+}
+
+.conf.growing {
+  background: rgba(224, 180, 91, 0.25);
+  color: #8a6a1f;
+}
+
+.conf.strong {
+  background: var(--green);
+  color: #fff;
+}
+
+.empty-state {
+  margin-top: 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* weekly review */
+.review-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.review-section {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 8px;
+  padding: 14px;
+  background: #fbfcf8;
+}
+
+.review-section p:not(.eyebrow) {
+  margin: 6px 0 0;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.review-section.focus {
+  border-left-color: var(--green);
+  background: rgba(143, 191, 95, 0.08);
+}
+
+.review-section.focus ul {
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.review-section.focus li + li {
+  margin-top: 6px;
+}
+
+.secondary-button.danger {
+  color: var(--tomato);
+  border-color: var(--tomato);
+}
+
+@media (max-width: 720px) {
+  .qa-grid,
+  .dna-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .tab-bar {
+    position: static;
+  }
+}
+
 @media (max-width: 420px) {
   .hero-copy h2 {
     font-size: 1.95rem;

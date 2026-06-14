@@ -8,12 +8,20 @@
     {
       "src": "public/**",
       "use": "@vercel/static"
+    },
+    {
+      "src": "engine/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "/api/$1.js"
+    },
+    {
+      "src": "/engine/(.*)",
+      "dest": "/engine/$1"
     },
     {
       "src": "/",

@@ -3,46 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>You Are What You Eat App</title>
+    <title>You Are What You Eat — Health DNA</title>
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <header class="app-header">
       <div>
-        <p class="eyebrow">FOUNDATION BRAIN v1.0</p>
-        <h1>You Are What You Eat<span>™</span> App</h1>
+        <p class="eyebrow">HEALTH DNA ENGINE</p>
+        <h1>You Are What You Eat<span>™</span></h1>
       </div>
       <p class="motto">Today's plate becomes tomorrow's body.</p>
     </header>
 
-    <main class="app-shell">
-      <section class="uploader-hero">
-        <div class="hero-copy">
-          <p class="eyebrow">Meal Uploader</p>
-          <h2>Upload a plate. Understand the future it points toward.</h2>
-          <p>
-            The core loop is simple: add the meal, add context, see what happened,
-            why it happened, where it is leading, and what to do next.
-          </p>
-        </div>
-        <div class="quick-stats" aria-label="Meal uploader principles">
-          <div>
-            <strong>Photo first</strong>
-            <span>No weighing required</span>
-          </div>
-          <div>
-            <strong>Trend aware</strong>
-            <span>One meal is not judged alone</span>
-          </div>
-          <div>
-            <strong>No shame</strong>
-            <span>Consequences, tradeoffs, adjustments</span>
-          </div>
-        </div>
-      </section>
+    <nav class="tab-bar" id="tabBar">
+      <button class="tab is-active" data-tab="log">Log Meal</button>
+      <button class="tab" data-tab="dna">Health DNA</button>
+      <button class="tab" data-tab="review">Weekly Review</button>
+      <button class="tab" data-tab="profile">Profile</button>
+    </nav>
 
-      <section class="meal-workspace">
+    <main class="app-shell">
+      <!-- ============================ LOG MEAL (photo first) ============================ -->
+      <section class="screen is-active" data-screen="log">
         <article class="panel upload-panel">
           <div class="panel-heading">
             <div>
@@ -71,11 +54,8 @@
           <div class="meal-context">
             <label class="wide-field">
               Optional notes
-              <textarea
-                id="mealDescription"
-                rows="3"
-                placeholder="Optional: sauce on the side, half eaten, extra cheese, shared fries"
-              ></textarea>
+              <textarea id="mealDescription" rows="2"
+                placeholder="Optional: sauce on the side, half eaten, extra cheese, shared fries"></textarea>
             </label>
             <label>
               Meal Type
@@ -137,7 +117,12 @@
                 <option>Less than half</option>
               </select>
             </label>
+            <label class="checkbox-field">
+              <input type="checkbox" id="postMealWalk" />
+              Walked after this meal
+            </label>
           </div>
+
           <div id="contextAlert" class="context-alert" hidden>
             Choose the required meal details before analysis starts.
           </div>
@@ -158,15 +143,12 @@
           </div>
 
           <div id="analysisNotice" class="analysis-notice">
-            Ready for a meal photo or plate description.
+            Take or upload a meal photo to start.
           </div>
 
           <div id="failureHelp" class="failure-help" hidden>
             <h3>Photo analysis did not complete</h3>
-            <p>
-              Retake the photo from above with the full plate visible, or try
-              Analyze again after the backend is ready.
-            </p>
+            <p>Retake the photo with the full plate visible, or try Analyze again after the backend is ready.</p>
           </div>
 
           <div id="plateRead" class="plate-read">
@@ -178,10 +160,7 @@
             </div>
             <div>
               <p class="eyebrow">Estimated Plate Read</p>
-              <p id="plateSummary">
-                Upload a meal to estimate portion balance, macro signals, sodium,
-                glucose impact, and tomorrow's likely scale noise.
-              </p>
+              <p id="plateSummary">Upload a meal to estimate portion balance, macro signals, sodium, glucose impact, and tomorrow's likely scale noise.</p>
               <div id="detectedFoods" class="detected-foods"></div>
               <ul id="accuracyNotes" class="accuracy-notes"></ul>
             </div>
@@ -195,63 +174,98 @@
                 <p class="eyebrow">Vital Information</p>
                 <h2>What This Meal May Do</h2>
               </div>
-              <span id="confidenceBadge" class="scan-status">Photo estimate</span>
+              <span id="confidenceBadge" class="scan-status">No analysis yet</span>
             </div>
             <div id="vitalSignals" class="vital-signals"></div>
           </div>
 
-          <div class="result-grid">
-            <div class="coach-box">
-              <p class="eyebrow">What It Means</p>
-              <p id="coachMessage">
-                Add a meal and press analyze to see what happened, why it happened,
-                and the next best adjustment.
-              </p>
+          <div class="qa-grid">
+            <div class="qa-card"><p class="eyebrow">What happened</p><p id="qWhat"></p></div>
+            <div class="qa-card"><p class="eyebrow">Why it happened</p><p id="qWhy"></p></div>
+            <div class="qa-card"><p class="eyebrow">Where it's leading</p><p id="qWhere"></p></div>
+            <div class="qa-card">
+              <p class="eyebrow">What to do next</p>
+              <ul id="qNext"></ul>
             </div>
-            <div class="next-step-box">
-              <p class="eyebrow">Next Step</p>
-              <ul id="nextSteps"></ul>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">History</p><h2>Recent Meals</h2></div>
+          </div>
+          <div id="mealHistory" class="meal-history"></div>
+        </article>
+      </section>
+
+      <!-- ============================ HEALTH DNA ============================ -->
+      <section class="screen" data-screen="dna">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Your Health DNA</p>
+              <h2>What Works For You</h2>
+            </div>
+            <span id="dnaCount" class="scan-status">0 meals</span>
+          </div>
+          <p class="muted">The more you log, the smarter this gets. Patterns appear once the engine has enough evidence.</p>
+
+          <div class="dna-columns">
+            <div>
+              <p class="eyebrow good">Helps you</p>
+              <ul id="dnaWorks" class="dna-list"></ul>
+            </div>
+            <div>
+              <p class="eyebrow bad">Works against you</p>
+              <ul id="dnaHurts" class="dna-list"></ul>
+            </div>
+          </div>
+
+          <div id="dnaEmpty" class="empty-state" hidden>
+            <p>No patterns learned yet. Log a few meals — or load a sample week to see how it works.</p>
+            <div class="action-row">
+              <button id="loadSample" class="primary-button" type="button">Load sample week</button>
             </div>
           </div>
         </article>
       </section>
 
-      <section class="support-grid">
-        <article class="panel history-panel">
+      <!-- ============================ WEEKLY REVIEW ============================ -->
+      <section class="screen" data-screen="review">
+        <article class="panel">
           <div class="panel-heading">
             <div>
-              <p class="eyebrow">Meal History</p>
-              <h2>Recent Uploads</h2>
+              <p class="eyebrow">This Week</p>
+              <h2>Weekly Health DNA Review</h2>
             </div>
+            <span id="reviewWeek" class="scan-status"></span>
           </div>
-          <div id="mealHistory" class="meal-history"></div>
+          <div id="reviewBody" class="review-body"></div>
         </article>
+      </section>
 
-        <article class="panel profile-panel">
+      <!-- ============================ PROFILE ============================ -->
+      <section class="screen" data-screen="profile">
+        <article class="panel">
           <div class="panel-heading">
-            <div>
-              <p class="eyebrow">Health DNA</p>
-              <h2>Personal Context</h2>
-            </div>
+            <div><p class="eyebrow">Health DNA</p><h2>Your Profile</h2></div>
+            <span id="profileStatus" class="scan-status"></span>
           </div>
           <form id="profileForm" class="profile-form">
-            <label>
-              Weight
-              <input type="number" id="weight" min="70" max="500" value="182" />
-            </label>
+            <label>Name <input type="text" id="pName" placeholder="Your name" /></label>
             <label>
               Primary Goal
-              <select id="goal">
-                <option selected>Fat loss</option>
+              <select id="pGoal">
+                <option>Fat loss</option>
                 <option>Glucose stability</option>
                 <option>Heart health</option>
                 <option>Strength and muscle</option>
-                <option>General wellness</option>
+                <option selected>General wellness</option>
               </select>
             </label>
             <label>
-              Activity
-              <select id="activity">
+              Activity Level
+              <select id="pActivity">
                 <option>Light walking</option>
                 <option selected>Moderate activity</option>
                 <option>Resistance training</option>
@@ -259,30 +273,33 @@
               </select>
             </label>
             <label>
-              Preference
-              <select id="preference">
-                <option selected>Flexible</option>
-                <option>Higher protein</option>
-                <option>Lower sodium</option>
-                <option>Budget-focused</option>
-                <option>Restaurant-friendly</option>
+              Sex
+              <select id="pSex">
+                <option value="unspecified" selected>Prefer not to say</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
               </select>
             </label>
+            <label>Age <input type="number" id="pAge" min="13" max="110" placeholder="optional" /></label>
+            <div class="action-row">
+              <button id="saveProfile" class="primary-button" type="button">Save profile</button>
+            </div>
           </form>
         </article>
 
-        <article class="panel planner-panel">
+        <article class="panel">
           <div class="panel-heading">
-            <div>
-              <p class="eyebrow">7-Day Planner</p>
-              <h2>Recovery Trend</h2>
-            </div>
+            <div><p class="eyebrow">Data</p><h2>Manage</h2></div>
           </div>
-          <div id="weekPlanner" class="week-planner"></div>
+          <p class="muted">Everything is stored privately on this device until the cloud backend is connected.</p>
+          <div class="action-row">
+            <button id="loadSample2" class="secondary-button" type="button">Load sample week</button>
+            <button id="resetData" class="secondary-button danger" type="button">Reset all data</button>
+          </div>
         </article>
       </section>
     </main>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
