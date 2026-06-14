@@ -1,0 +1,12 @@
+# Dependencies (recreated with `npm install`)
+node_modules/
+
+# Secrets — never commit the real env file
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# Claude local files
+.claude/
