@@ -297,7 +297,35 @@ async function handleStatic(request, response) {
   }
 }
 
+// Health DNA engine routes are loaded lazily so the static app and meal-vision
+// endpoints keep working even if Supabase deps aren't installed yet.
+let dnaRoutesPromise = null;
+function getDnaRoutes() {
+  if (!dnaRoutesPromise) {
+    dnaRoutesPromise = import("./lib/api-handlers.mjs").then((m) => m.routes);
+  }
+  return dnaRoutesPromise;
+}
+
 const server = createServer((request, response) => {
+  const pathname = new URL(request.url, `http://localhost:${PORT}`).pathname;
+
+  // Engine API (profile, meals, activities, body, health-dna, weekly-review).
+  if (
+    pathname.startsWith("/api/") &&
+    pathname !== "/api/health" &&
+    pathname !== "/api/analyze-meal"
+  ) {
+    getDnaRoutes()
+      .then((routes) => {
+        const handler = routes[pathname];
+        if (handler) return handler(request, response);
+        sendJson(response, 404, { error: "Unknown API route." });
+      })
+      .catch((error) => sendJson(response, 500, { error: error.message }));
+    return;
+  }
+
   if (request.method === "GET" && request.url === "/api/health") {
     sendJson(response, 200, {
       ok: true,
