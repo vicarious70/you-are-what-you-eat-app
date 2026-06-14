@@ -25,6 +25,15 @@ const UID = getUserId();
 
 let selectedMealImage = "";
 let loadingTimers = [];
+// True after a photo is added but required fields are still missing. While it's
+// set, filling the last required field auto-starts the analysis (the original
+// hands-free flow: upload -> fill -> it runs itself).
+let waitingForRequiredContext = false;
+
+function smoothScrollTo(selector) {
+  const el = document.querySelector(selector);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 const requiredFields = [
   ["mealType", "meal type"],
@@ -210,7 +219,9 @@ async function analyzeMeal() {
     return;
   }
   clearContextAlert();
+  waitingForRequiredContext = false;
   renderAnalyzingState();
+  smoothScrollTo("#analysisNotice"); // land on the green progress box
 
   let served;
   let visionResult = null;
@@ -242,7 +253,7 @@ async function analyzeMeal() {
   clearLoadingTimers();
   setAnalyzing(false);
   $("#scanStatus").textContent = "Analyzed";
-  $("#analysisNotice").scrollIntoView({ behavior: "smooth", block: "start" });
+  smoothScrollTo("#plateRead"); // land on the results
 }
 
 function signalCard(title, sig) {
@@ -368,8 +379,16 @@ async function handlePhoto(event) {
     $("#uploadText").textContent = "Retake or replace photo";
     $("#scanStatus").textContent = "Photo added";
     setAnalyzing(false);
-    if (!missingRequired().length) analyzeMeal();
-    else showContextAlert(missingRequired());
+    if (!missingRequired().length) {
+      // Everything's set — run hands-free.
+      analyzeMeal();
+    } else {
+      // Need details first: surface them and scroll the user down to fill them.
+      // Filling the last one auto-starts the analysis (see the change listener).
+      waitingForRequiredContext = true;
+      showContextAlert(missingRequired());
+      smoothScrollTo(".meal-context");
+    }
   } catch (error) {
     setAnalyzing(false);
     renderFailure(error.message || "The selected photo could not be prepared.");
@@ -540,7 +559,19 @@ $("#loadSample2").addEventListener("click", loadSampleWeek);
 $("#resetData").addEventListener("click", resetData);
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {
-    if (!missingRequired().length) clearContextAlert();
+    const missing = missingRequired();
+    if (missing.length) {
+      // Keep the prompt in sync if we're still waiting on fields.
+      if (waitingForRequiredContext) showContextAlert(missing);
+      return;
+    }
+    clearContextAlert();
+    // Last required field just got filled after a photo was added — auto-start.
+    if (waitingForRequiredContext && selectedMealImage) {
+      waitingForRequiredContext = false;
+      smoothScrollTo("#analysisNotice");
+      setTimeout(() => analyzeMeal(), 250);
+    }
   })
 );
 
