@@ -263,6 +263,10 @@ function signalCard(title, sig) {
 
 function renderResult(analysis, visionResult, usedFallback) {
   const consumed = analysis.consumption.consumed;
+  const served = analysis.consumption.served;
+  const ef = analysis.consumption.eatenFraction;
+  const calMin = Math.round((served.calorieMin || consumed.calories) * ef);
+  const calMax = Math.round((served.calorieMax || consumed.calories) * ef);
   const { impact, questions, signals } = analysis;
 
   $("#failureHelp").hidden = true;
@@ -277,7 +281,7 @@ function renderResult(analysis, visionResult, usedFallback) {
 
   // consumed macros
   const metrics = [
-    ["Calories", `${consumed.calories} kcal`, "energy eaten"],
+    ["Calories", `${consumed.calories} kcal`, `range ${calMin}–${calMax} kcal`],
     ["Protein", `${consumed.proteinG}g`, "satiety & muscle"],
     ["Carbs", `${consumed.carbsG}g`, "glucose load"],
     ["Fat", `${consumed.fatG}g`, "richness"],
@@ -444,7 +448,7 @@ function confidenceTag(c) {
 
 async function renderDNA() {
   const dna = await engine.getHealthDNA(UID);
-  $("#dnaCount").textContent = `${dna.mealsAnalyzed} meals`;
+  $("#dnaCount").textContent = `${dna.mealsAnalyzed} ${dna.mealsAnalyzed === 1 ? "meal" : "meals"}`;
   const works = dna.works || [];
   const hurts = dna.doesNotWork || [];
   const li = (i) => `<li><span>${i.summary}</span>${confidenceTag(i.confidence)}</li>`;
@@ -500,36 +504,8 @@ async function saveProfile() {
 }
 
 // ---------------------------------------------------------------------------
-// Sample week + reset
+// Reset
 // ---------------------------------------------------------------------------
-
-function daysAgo(n, hour = 18) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(hour, 0, 0, 0);
-  return d.toISOString();
-}
-
-async function loadSampleWeek() {
-  await engine.upsertProfile({ id: UID, name: "Sample", goal: "Fat loss", activityLevel: "Moderate activity" });
-  const meals = [
-    { tags: ["high-protein", "vegetables"], proteinG: 48, carbsG: 40, sodiumMg: 700, sugarG: 4, signals: { glucosePeak: 105, satietyHours: 5, postMealWalk: true }, timing: "Dinner", notes: "grilled chicken and salad", at: daysAgo(6) },
-    { tags: ["high-protein", "starch-heavy"], proteinG: 45, carbsG: 70, sodiumMg: 800, sugarG: 6, signals: { glucosePeak: 120, satietyHours: 4.5, postMealWalk: true }, timing: "Dinner", notes: "chicken and potatoes", at: daysAgo(5) },
-    { tags: ["sugary-drink"], proteinG: 28, carbsG: 110, sodiumMg: 1600, sugarG: 55, signals: { glucosePeak: 190, satietyHours: 2, energy: "low" }, timing: "Dinner", notes: "burger and a large soda", at: daysAgo(4) },
-    { tags: ["high-protein", "vegetables"], proteinG: 50, carbsG: 35, sodiumMg: 650, sugarG: 3, signals: { glucosePeak: 100, satietyHours: 5, postMealWalk: true }, timing: "Dinner", notes: "salmon and greens", at: daysAgo(3) },
-    { tags: ["starch-heavy"], proteinG: 30, carbsG: 95, sodiumMg: 900, sugarG: 8, signals: { glucosePeak: 135, satietyHours: 3.5 }, timing: "Dinner", notes: "pasta night", at: daysAgo(2) },
-    { tags: ["sugary-drink", "fried"], proteinG: 20, carbsG: 120, sodiumMg: 1900, sugarG: 48, signals: { glucosePeak: 200, satietyHours: 2, energy: "low" }, timing: "Dinner", notes: "fries and sweet tea", at: daysAgo(1) },
-    { tags: ["high-protein", "vegetables"], proteinG: 47, carbsG: 38, sodiumMg: 700, sugarG: 5, signals: { glucosePeak: 102, satietyHours: 5, postMealWalk: true }, timing: "Dinner", notes: "turkey and veggies", at: daysAgo(0) },
-    { tags: ["sugary-drink"], proteinG: 22, carbsG: 95, sodiumMg: 1200, sugarG: 50, signals: { glucosePeak: 185, satietyHours: 2.5, energy: "low" }, timing: "Lunch", notes: "sandwich and a soda", at: daysAgo(5, 12) },
-    { tags: ["sugary-drink"], proteinG: 24, carbsG: 90, sodiumMg: 1100, sugarG: 46, signals: { glucosePeak: 180, satietyHours: 2.5, energy: "low" }, timing: "Lunch", notes: "wrap and lemonade", at: daysAgo(2, 12) },
-  ];
-  for (const m of meals) await engine.logMeal({ userId: UID, mealType: "Home plate", portion: "Standard", ...m });
-  await engine.logActivity({ userId: UID, type: "walk", durationMin: 15, at: daysAgo(0) });
-  await engine.logBody({ userId: UID, weightLb: 184, at: daysAgo(6) });
-  await engine.logBody({ userId: UID, weightLb: 182.5, at: daysAgo(0) });
-  await renderHistory();
-  showTab("dna");
-}
 
 async function resetData() {
   if (!confirm("Delete all locally stored meals, profile, and data on this device?")) return;
@@ -554,8 +530,6 @@ $("#cameraPhoto").addEventListener("change", handlePhoto);
 $("#analyzeMeal").addEventListener("click", analyzeMeal);
 $("#clearMeal").addEventListener("click", clearMeal);
 $("#saveProfile").addEventListener("click", saveProfile);
-$("#loadSample").addEventListener("click", loadSampleWeek);
-$("#loadSample2").addEventListener("click", loadSampleWeek);
 $("#resetData").addEventListener("click", resetData);
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {

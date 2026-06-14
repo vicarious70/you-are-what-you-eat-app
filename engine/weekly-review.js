@@ -76,9 +76,11 @@ function nutritionReview(meals) {
       ? ` Consumption DNA noticed roughly ${totals.caloriesSaved} kcal served but not eaten — leaving food on the plate is already working in your favor.`
       : "";
 
+  const mealWord = perMeal === 1 ? "meal" : "meals";
+  const dayWord = days === 1 ? "day" : "days";
   return {
     headline: "Nutrition",
-    body: `You logged ${perMeal} meals across ${days} day(s), averaging about ${avgCalories} kcal/day and ${avgProtein}g protein per meal. ${proteinLine} ${sodiumLine}${savedLine}`,
+    body: `You logged ${perMeal} ${mealWord} across ${days} ${dayWord}, averaging about ${avgCalories} kcal/day and ${avgProtein}g protein per meal. ${proteinLine} ${sodiumLine}${savedLine}`,
     stats: { meals: perMeal, daysLogged: days, avgCaloriesPerDay: avgCalories, avgProteinPerMeal: avgProtein, avgSodiumPerMeal: avgSodium, caloriesSaved: totals.caloriesSaved },
   };
 }
