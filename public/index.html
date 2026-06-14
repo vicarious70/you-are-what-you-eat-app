@@ -16,8 +16,9 @@
       <p class="motto">Today's plate becomes tomorrow's body.</p>
     </header>
 
-    <nav class="tab-bar" id="tabBar">
+    <nav class="tab-bar" id="tabBar" hidden>
       <button class="tab is-active" data-tab="log">Log Meal</button>
+      <button class="tab" data-tab="track">Track</button>
       <button class="tab" data-tab="dna">Health DNA</button>
       <button class="tab" data-tab="review">Weekly Review</button>
       <button class="tab" data-tab="profile">Profile</button>
@@ -198,6 +199,53 @@
         </article>
       </section>
 
+      <!-- ============================ TRACK (workouts + body) ============================ -->
+      <section class="screen" data-screen="track">
+        <article class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Workout DNA</p><h2>Log a Workout</h2></div>
+            <span id="workoutStatus" class="scan-status"></span>
+          </div>
+          <div class="form-grid">
+            <label>
+              Type
+              <select id="wType">
+                <option value="walk">Walk</option>
+                <option value="run">Run</option>
+                <option value="cycling">Cycling</option>
+                <option value="strength">Strength training</option>
+                <option value="swimming">Swimming</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label>Minutes <input type="number" id="wDuration" min="1" max="600" placeholder="30" /></label>
+            <label>Calories burned <input type="number" id="wCalories" min="0" max="5000" placeholder="optional" /></label>
+            <label>Distance (mi) <input type="number" id="wDistance" min="0" max="200" step="0.1" placeholder="optional" /></label>
+          </div>
+          <div class="action-row">
+            <button id="saveWorkout" class="primary-button" type="button">Save workout</button>
+          </div>
+          <div id="workoutHistory" class="meal-history"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Body Response</p><h2>Log a Weigh-in</h2></div>
+            <span id="bodyStatus" class="scan-status"></span>
+          </div>
+          <div class="form-grid">
+            <label>Weight (lb) <input type="number" id="bWeight" min="50" max="800" step="0.1" placeholder="e.g. 182" /></label>
+            <label>Body fat % <input type="number" id="bFat" min="3" max="70" step="0.1" placeholder="optional" /></label>
+            <label>Fasting glucose <input type="number" id="bGlucose" min="40" max="600" placeholder="mg/dL, optional" /></label>
+            <label>Resting HR <input type="number" id="bHr" min="30" max="220" placeholder="bpm, optional" /></label>
+          </div>
+          <div class="action-row">
+            <button id="saveBody" class="primary-button" type="button">Save entry</button>
+          </div>
+          <div id="bodyHistory" class="meal-history"></div>
+        </article>
+      </section>
+
       <!-- ============================ HEALTH DNA ============================ -->
       <section class="screen" data-screen="dna">
         <article class="panel">
@@ -241,15 +289,32 @@
         </article>
       </section>
 
-      <!-- ============================ PROFILE ============================ -->
+      <!-- ============================ PROFILE / ONBOARDING ============================ -->
       <section class="screen" data-screen="profile">
         <article class="panel">
-          <div class="panel-heading">
+          <div id="onboardWelcome" class="onboard-welcome" hidden>
+            <p class="eyebrow">Welcome</p>
+            <h2>Let's set up your Health DNA</h2>
+            <p>A few details make every meal reading and weekly review accurate for <em>your</em> body. You can change these anytime.</p>
+          </div>
+          <div class="panel-heading" id="profileHeading">
             <div><p class="eyebrow">Health DNA</p><h2>Your Profile</h2></div>
             <span id="profileStatus" class="scan-status"></span>
           </div>
-          <form id="profileForm" class="profile-form">
-            <label>Name <input type="text" id="pName" placeholder="Your name" /></label>
+          <form id="profileForm" class="form-grid">
+            <label class="wide-field">Name <input type="text" id="pName" placeholder="Your name" /></label>
+            <label>
+              Sex
+              <select id="pSex">
+                <option value="unspecified" selected>Prefer not to say</option>
+                <option value="female">Female</option>
+                <option value="male">Male</option>
+              </select>
+            </label>
+            <label>Age <input type="number" id="pAge" min="13" max="110" placeholder="years" /></label>
+            <label>Height (ft) <input type="number" id="pHeightFt" min="3" max="7" placeholder="5" /></label>
+            <label>Height (in) <input type="number" id="pHeightIn" min="0" max="11" placeholder="8" /></label>
+            <label>Current weight (lb) <input type="number" id="pWeight" min="50" max="800" step="0.1" placeholder="e.g. 182" /></label>
             <label>
               Primary Goal
               <select id="pGoal">
@@ -269,26 +334,21 @@
                 <option>High activity</option>
               </select>
             </label>
-            <label>
-              Sex
-              <select id="pSex">
-                <option value="unspecified" selected>Prefer not to say</option>
-                <option value="female">Female</option>
-                <option value="male">Male</option>
-              </select>
+            <label class="wide-field">
+              Health notes (optional)
+              <textarea id="pConditions" rows="2" placeholder="e.g. prediabetes, high blood pressure, knee injury"></textarea>
             </label>
-            <label>Age <input type="number" id="pAge" min="13" max="110" placeholder="optional" /></label>
-            <div class="action-row">
-              <button id="saveProfile" class="primary-button" type="button">Save profile</button>
-            </div>
           </form>
+          <div class="action-row">
+            <button id="saveProfile" class="primary-button" type="button">Save profile</button>
+          </div>
         </article>
 
-        <article class="panel">
+        <article class="panel" id="advancedPanel">
           <div class="panel-heading">
-            <div><p class="eyebrow">Data</p><h2>Manage</h2></div>
+            <div><p class="eyebrow">Advanced</p><h2>Start over</h2></div>
           </div>
-          <p class="muted">Everything is stored privately on this device until the cloud backend is connected.</p>
+          <p class="muted">Clears everything stored on this device — profile, meals, workouts, and body entries. This can't be undone.</p>
           <div class="action-row">
             <button id="resetData" class="secondary-button danger" type="button">Reset all data</button>
           </div>

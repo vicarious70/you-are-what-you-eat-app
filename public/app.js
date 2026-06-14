@@ -406,6 +406,8 @@ async function handlePhoto(event) {
 function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("is-active", t.dataset.tab === name));
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === name));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+  if (name === "track") renderTrack();
   if (name === "dna") renderDNA();
   if (name === "review") renderReview();
   if (name === "profile") loadProfile();
@@ -488,9 +490,23 @@ async function loadProfile() {
   if (p.activityLevel) $("#pActivity").value = p.activityLevel;
   if (p.sex) $("#pSex").value = p.sex;
   $("#pAge").value = p.age || "";
+  if (p.heightIn != null) {
+    $("#pHeightFt").value = Math.floor(p.heightIn / 12) || "";
+    $("#pHeightIn").value = p.heightIn % 12;
+  }
+  $("#pWeight").value = p.startWeightLb || "";
+  $("#pConditions").value = (p.medicalConditions || []).join(", ");
 }
 
 async function saveProfile() {
+  const ft = Number($("#pHeightFt").value) || 0;
+  const inch = Number($("#pHeightIn").value) || 0;
+  const heightIn = ft || inch ? ft * 12 + inch : null;
+  const conditions = $("#pConditions").value
+    .split(",")
+    .map((c) => c.trim())
+    .filter(Boolean);
+
   await engine.upsertProfile({
     id: UID,
     name: $("#pName").value.trim() || "Friend",
@@ -498,9 +514,127 @@ async function saveProfile() {
     activityLevel: $("#pActivity").value,
     sex: $("#pSex").value,
     age: $("#pAge").value ? Number($("#pAge").value) : null,
+    heightIn,
+    startWeightLb: $("#pWeight").value ? Number($("#pWeight").value) : null,
+    medicalConditions: conditions,
   });
+
+  // Completing the profile for the first time finishes onboarding.
+  if (!isOnboarded()) {
+    finishOnboarding();
+    return;
+  }
   $("#profileStatus").textContent = "Saved";
   setTimeout(() => ($("#profileStatus").textContent = ""), 1500);
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding — profile first. Tabs stay hidden until the profile is saved.
+// ---------------------------------------------------------------------------
+
+function isOnboarded() {
+  return localStorage.getItem("ywye.onboarded") === "1";
+}
+
+function startOnboarding() {
+  $("#tabBar").hidden = true;
+  $("#onboardWelcome").hidden = false;
+  $("#profileHeading").hidden = true;
+  $("#advancedPanel").hidden = true;
+  $("#saveProfile").textContent = "Save & continue";
+  document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === "profile"));
+  loadProfile();
+}
+
+function finishOnboarding() {
+  localStorage.setItem("ywye.onboarded", "1");
+  $("#onboardWelcome").hidden = true;
+  $("#profileHeading").hidden = false;
+  $("#advancedPanel").hidden = false;
+  $("#saveProfile").textContent = "Save profile";
+  $("#tabBar").hidden = false;
+  showTab("log");
+}
+
+// ---------------------------------------------------------------------------
+// Track — workouts + body readings
+// ---------------------------------------------------------------------------
+
+const TYPE_LABELS = { walk: "Walk", run: "Run", cycling: "Cycling", strength: "Strength", swimming: "Swimming", other: "Workout" };
+
+async function logWorkout() {
+  const duration = Number($("#wDuration").value);
+  if (!duration) {
+    $("#workoutStatus").textContent = "Add minutes";
+    return;
+  }
+  await engine.logActivity({
+    userId: UID,
+    type: $("#wType").value,
+    durationMin: duration,
+    caloriesBurned: $("#wCalories").value ? Number($("#wCalories").value) : 0,
+    distanceMi: $("#wDistance").value ? Number($("#wDistance").value) : null,
+  });
+  $("#wDuration").value = "";
+  $("#wCalories").value = "";
+  $("#wDistance").value = "";
+  $("#workoutStatus").textContent = "Saved";
+  setTimeout(() => ($("#workoutStatus").textContent = ""), 1500);
+  renderTrack();
+}
+
+async function logBodyEntry() {
+  const weight = $("#bWeight").value ? Number($("#bWeight").value) : null;
+  const fat = $("#bFat").value ? Number($("#bFat").value) : null;
+  const glucose = $("#bGlucose").value ? Number($("#bGlucose").value) : null;
+  const hr = $("#bHr").value ? Number($("#bHr").value) : null;
+  if (weight == null && fat == null && glucose == null && hr == null) {
+    $("#bodyStatus").textContent = "Add a value";
+    return;
+  }
+  await engine.logBody({ userId: UID, weightLb: weight, bodyFatPct: fat, fastingGlucose: glucose, restingHr: hr });
+  ["#bWeight", "#bFat", "#bGlucose", "#bHr"].forEach((s) => ($(s).value = ""));
+  $("#bodyStatus").textContent = "Saved";
+  setTimeout(() => ($("#bodyStatus").textContent = ""), 1500);
+  renderTrack();
+}
+
+function whenLabel(at) {
+  return (
+    new Date(at).toLocaleDateString([], { weekday: "short" }) +
+    " · " +
+    new Date(at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })
+  );
+}
+
+async function renderTrack() {
+  const acts = (await store.listActivities(UID)).slice().reverse();
+  $("#workoutHistory").innerHTML = acts.length
+    ? acts
+        .slice(0, 10)
+        .map((a) => {
+          const bits = [`${a.durationMin} min`];
+          if (a.caloriesBurned) bits.push(`${a.caloriesBurned} kcal`);
+          if (a.distanceMi) bits.push(`${a.distanceMi} mi`);
+          return `<div class="history-item"><div><strong>${TYPE_LABELS[a.type] || a.type}</strong><span>${whenLabel(a.at)}</span></div><b>${bits.join(" · ")}</b></div>`;
+        })
+        .join("")
+    : '<p class="empty-history">No workouts yet.</p>';
+
+  const body = (await store.listBodyEntries(UID)).slice().reverse();
+  $("#bodyHistory").innerHTML = body.length
+    ? body
+        .slice(0, 10)
+        .map((b) => {
+          const bits = [];
+          if (b.weightLb != null) bits.push(`${b.weightLb} lb`);
+          if (b.bodyFatPct != null) bits.push(`${b.bodyFatPct}% fat`);
+          if (b.fastingGlucose != null) bits.push(`${b.fastingGlucose} mg/dL`);
+          if (b.restingHr != null) bits.push(`${b.restingHr} bpm`);
+          return `<div class="history-item"><div><strong>Weigh-in</strong><span>${whenLabel(b.at)}</span></div><b>${bits.join(" · ")}</b></div>`;
+        })
+        .join("")
+    : '<p class="empty-history">No body readings yet.</p>';
 }
 
 // ---------------------------------------------------------------------------
@@ -508,13 +642,13 @@ async function saveProfile() {
 // ---------------------------------------------------------------------------
 
 async function resetData() {
-  if (!confirm("Delete all locally stored meals, profile, and data on this device?")) return;
+  if (!confirm("Delete everything stored on this device — profile, meals, workouts, and body entries?")) return;
   clearLocalData();
+  localStorage.removeItem("ywye.onboarded");
   clearMeal();
   await renderHistory();
-  await renderDNA();
-  $("#profileStatus").textContent = "Cleared";
-  setTimeout(() => ($("#profileStatus").textContent = ""), 1500);
+  // Back to a clean slate: re-run onboarding.
+  startOnboarding();
 }
 
 // ---------------------------------------------------------------------------
@@ -530,6 +664,8 @@ $("#cameraPhoto").addEventListener("change", handlePhoto);
 $("#analyzeMeal").addEventListener("click", analyzeMeal);
 $("#clearMeal").addEventListener("click", clearMeal);
 $("#saveProfile").addEventListener("click", saveProfile);
+$("#saveWorkout").addEventListener("click", logWorkout);
+$("#saveBody").addEventListener("click", logBodyEntry);
 $("#resetData").addEventListener("click", resetData);
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {
@@ -549,4 +685,11 @@ requiredFields.forEach(([id]) =>
   })
 );
 
+// Boot: first-time users complete their profile before anything unlocks.
 renderHistory();
+if (isOnboarded()) {
+  $("#tabBar").hidden = false;
+  showTab("log");
+} else {
+  startOnboarding();
+}
