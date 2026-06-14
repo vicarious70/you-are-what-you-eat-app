@@ -1,190 +1,159 @@
-<br />
-<p align="center">
-  <a href="https://supabase.io">
-        <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-wordmark--dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/supabase-logo-wordmark--light.svg">
-      <img alt="Supabase Logo" width="300" src="https://raw.githubusercontent.com/supabase/supabase/master/packages/common/assets/images/logo-preview.jpg">
-    </picture>
-  </a>
+# You Are What You Eat App
 
-  <h1 align="center">Supabase Auth JS SDK</h1>
+Foundation Brain v1.0 prototype.
 
-  <h3 align="center">An isomorphic JavaScript SDK for the <a href="https://github.com/supabase/auth">Supabase Auth</a> API.</h3>
+This workspace contains a static MVP for a Health DNA Engine. It is not a calorie counter or a diet app. It is designed to help users understand what their food choices are doing to their body, where those choices are leading over time, and what to do next.
 
-  <p align="center">
-    <a href="https://supabase.com/docs/guides/auth">Guides</a>
-    ·
-    <a href="https://supabase.com/docs/reference/javascript/auth-signup">Reference Docs</a>
-    ·
-    <a href="https://supabase.github.io/supabase-js/auth-js/v2/spec.json">TypeDoc</a>
-  </p>
-</p>
+## Product Principles
 
-<div align="center">
+- Create realization before restriction.
+- Never punish, shame, or guilt.
+- Always explain, educate, and guide.
+- Judge trends, not isolated meals.
+- Use the portion plate as the primary measuring system.
+- Make the experience photo-first and low friction.
 
-[![Build](https://github.com/supabase/supabase-js/workflows/CI/badge.svg)](https://github.com/supabase/supabase-js/actions?query=branch%3Amaster)
-[![Package](https://img.shields.io/npm/v/@supabase/auth-js)](https://www.npmjs.com/package/@supabase/auth-js)
-[![License: MIT](https://img.shields.io/npm/l/@supabase/supabase-js)](#license)
-[![pkg.pr.new](https://pkg.pr.new/badge/supabase/auth-js)](https://pkg.pr.new/~/supabase/auth-js)
+## MVP Surface
 
-</div>
+- User profile and Health DNA signals
+- Goal selection
+- Meal photo upload
+- Estimated meal impact
+- Weight trend tracking
+- 7-day planner
+- AI-style coaching and next-step guidance
 
-## Requirements
+## Health DNA Engine (the brain)
 
-- **Node.js 20 or later** (Node.js 18 support dropped as of October 31, 2025)
-- For browser support, all modern browsers are supported
+The engine in `engine/` is the core intelligence layer. It is pure,
+dependency-free JavaScript that runs unchanged in Node and the browser, and it
+answers the four product questions for every meal: what happened, why, where it
+is leading, and what to do next.
 
-> ⚠️ **Node.js 18 Deprecation Notice**
->
-> Node.js 18 reached end-of-life on April 30, 2025. As announced in [our deprecation notice](https://github.com/orgs/supabase/discussions/37217), support for Node.js 18 was dropped on October 31, 2025.
+| File | Responsibility |
+| --- | --- |
+| `engine/schema.js` | Data structures: Health DNA profile, meal, activity, body records. Normalizes messy input. |
+| `engine/meal-to-body.js` | Consumption DNA (served vs eaten vs saved) + the four-question analysis for one meal. |
+| `engine/learning.js` | DNA learning engine. Correlates each meal's factors (food tags, timing, post-meal walks) against body-response outcomes to learn what works / what doesn't, with confidence that grows as evidence accumulates. |
+| `engine/weekly-review.js` | Monday–Sunday review: Nutrition, Activity, Body Response, Progress, Mindset, Next Week Focus. Educational, never shaming. |
+| `engine/index.js` | `HealthDNAEngine` facade over a pluggable store. |
+| `engine/memory-store.js` | In-memory store for tests and the demo. |
 
-## Quick start
+Run the brain with no database, against the spec's Anthony scenario:
 
-Install
-
-```bash
-npm install --save @supabase/auth-js
+```sh
+npm run demo   # node engine/demo.mjs
 ```
 
-Usage
+It logs a week of meals, prints the learned Health DNA (higher protein and
+post-meal walks help glucose; sugary drinks hurt it), the four-question read on
+the latest meal, and a full weekly review.
 
-```js
-import { AuthClient } from '@supabase/auth-js'
+The store is an interface, so the same engine runs against in-memory data,
+`localStorage`, or Supabase without any change to the brain.
 
-const GOTRUE_URL = 'http://localhost:9999'
+## Supabase Backend
 
-const auth = new AuthClient({ url: GOTRUE_URL })
+Persistence and the HTTP API live behind Supabase (Postgres + Row Level
+Security).
+
+1. Create a Supabase project, then run `supabase/schema.sql` in the SQL editor.
+   It creates `profiles`, `meals`, `activities`, `body_entries`, and
+   `weekly_reviews`, enables RLS so each user only sees their own rows, and
+   auto-creates a profile on signup.
+2. Copy `.env.example` to `.env` (local) or set the same variables in Vercel:
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. The service
+   role key is server-only — never ship it to the browser.
+3. Endpoints authenticate with the caller's Supabase JWT (`Authorization:
+   Bearer <token>`). For local testing without auth, set `ALLOW_DEV_USER=true`
+   and pass `x-user-id: <uuid>`.
+
+### API
+
+All endpoints are served by both Vercel (`api/*.mjs`) and the local dev server.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET / POST | `/api/profile` | Read or upsert the Health DNA profile. |
+| GET | `/api/meals` | List meals. |
+| POST | `/api/meals` | Log a meal; returns `{ meal, analysis, dna }`. |
+| GET / POST | `/api/activities` | List or log workouts. |
+| GET / POST | `/api/body` | List or log weigh-ins / readings. |
+| GET | `/api/health-dna` | Learned insights: what works / what doesn't. |
+| GET | `/api/weekly-review` | Generate (and cache) the weekly review. |
+
+`lib/dna-store.mjs` maps Postgres rows to and from the engine's objects;
+`lib/api-handlers.mjs` holds the shared request handlers.
+
+## Running The App
+
+Open `index.html` in a browser. No build step is required.
+
+For meal photo analysis, run the backend server:
+
+```sh
+node server.mjs
 ```
 
-- `signUp()`: https://supabase.com/docs/reference/javascript/auth-signup
-- `signIn()`: https://supabase.com/docs/reference/javascript/auth-signin
-- `signOut()`: https://supabase.com/docs/reference/javascript/auth-signout
+Then open `http://localhost:5173/`.
 
-### Custom `fetch` implementation
+## Hosted Mobile Backend
 
-`auth-js` uses the [`cross-fetch`](https://www.npmjs.com/package/cross-fetch) library to make HTTP requests, but an alternative `fetch` implementation can be provided as an option. This is most useful in environments where `cross-fetch` is not compatible, for instance Cloudflare Workers:
+For the real mobile version, deploy this folder to Vercel. The hosted app uses
+`api/analyze-meal.js` as a serverless backend, so phones can analyze meal photos
+without depending on the Mac or Ollama.
 
-```js
-import { AuthClient } from '@supabase/auth-js'
+In Vercel, add these environment variables before redeploying:
 
-const AUTH_URL = 'http://localhost:9999'
-
-const auth = new AuthClient({ url: AUTH_URL, fetch: fetch })
+```sh
+GEMINI_API_KEY=your_new_gemini_key_here
+GEMINI_MODEL=gemini-3.5-flash
 ```
 
-## Development
+Do not paste the API key into `index.html`, `app.js`, or any public file. The key
+must live only in Vercel's Environment Variables.
 
-This package is part of the [Supabase JavaScript monorepo](https://github.com/supabase/supabase-js). To work on this package:
+Test links after deploy:
 
-### Building
+- App: `https://your-vercel-project.vercel.app/`
+- Backend health: `https://your-vercel-project.vercel.app/api/health`
 
-```bash
-# Complete build (from monorepo root)
-pnpm nx build auth-js
+The `/api/health` endpoint should return JSON with `"ok": true` and
+`"provider": "gemini"`. If it says `"missing-key"`, the Vercel environment
+variable is not set for the deployed environment yet.
 
-# Build with watch mode for development
-pnpm nx build auth-js --watch
+## Running With Gemini Vision
 
-# Individual build targets
-pnpm nx build:main auth-js    # CommonJS build (dist/main/)
-pnpm nx build:module auth-js  # ES Modules build (dist/module/)
+Use this for the real mobile path. Keep the API key on the server only.
 
-# Other useful commands
-pnpm nx lint auth-js          # Run ESLint
-pnpm nx typecheck auth-js     # TypeScript type checking
-pnpm nx docs auth-js          # Generate documentation
+```sh
+export GEMINI_API_KEY="your_new_gemini_key_here"
+node server.mjs
 ```
 
-#### Build Outputs
+The phone opens the Mac/server URL, uploads the photo, and the backend calls Gemini. Do not put the API key in `index.html`, `app.js`, or any mobile frontend file.
 
-- **CommonJS (`dist/main/`)** - For Node.js environments
-- **ES Modules (`dist/module/`)** - For modern bundlers (Webpack, Vite, Rollup)
-- **TypeScript definitions (`dist/module/index.d.ts`)** - Type definitions for TypeScript projects
+If `GEMINI_API_KEY` is not set, local development falls back to Ollama.
 
-### Testing
+## Running With Free Local Vision
 
-The auth-js package has two test suites:
+The app can use a local, no-per-use-cost vision backend through Ollama.
 
-1. **CLI Tests** - Main test suite using Supabase CLI (331 tests)
-2. **Docker Tests** - Edge case tests requiring specific GoTrue configurations (11 tests)
+1. Install Ollama from `https://ollama.com`.
+2. Pull a local vision model:
 
-#### Prerequisites
-
-- **Supabase CLI** - Required for main test suite ([installation guide](https://supabase.com/docs/guides/cli))
-- **Docker** - Required for edge case tests
-
-#### Running Tests
-
-```bash
-# Run main test suite with Supabase CLI (recommended)
-pnpm nx test:auth auth-js
-
-# Run Docker-only edge case tests
-pnpm nx test:docker auth-js
-
-# Run both test suites
-pnpm nx test:auth auth-js && pnpm nx test:docker auth-js
+```sh
+ollama pull llava:latest
 ```
 
-#### Main Test Suite (Supabase CLI)
+3. Start this app from the project folder without `GEMINI_API_KEY`:
 
-The `test:auth` command automatically:
-
-1. Stops any existing Supabase instance
-2. Starts a local Supabase instance via CLI
-3. Runs the test suite (excludes `docker-tests/` folder)
-4. Cleans up after tests complete
-
-```bash
-# Individual commands for manual control
-pnpm nx test:infra auth-js    # Start Supabase CLI
-pnpm nx test:suite auth-js    # Run tests only
-pnpm nx test:clean-post auth-js  # Stop Supabase CLI
+```sh
+node server.mjs
 ```
 
-#### Docker Tests (Edge Cases)
+4. Open `http://localhost:5173/`.
 
-The `test:docker` target runs tests that require specific GoTrue configurations not possible with a single Supabase CLI instance:
+When a meal photo is uploaded from the localhost app, the browser sends it to the local backend at `/api/analyze-meal`. The backend sends the image to Ollama running on your computer and returns estimated foods, portions, macros, sodium, sugar, glucose impact, water retention impact, and coaching.
 
-- **Signup disabled** - Tests for disabled signup functionality
-- **Asymmetric JWT (RS256)** - Tests for RS256 JWT verification
-- **Phone OTP / SMS** - Tests requiring Twilio SMS provider
-- **Anonymous sign-in disabled** - Tests for disabled anonymous auth
-
-These tests are located in `test/docker-tests/` and use the Docker Compose setup in `infra/docker-compose.yml`.
-
-```bash
-# Individual commands for manual control
-pnpm nx test:docker:infra auth-js    # Start Docker containers
-pnpm nx test:docker:suite auth-js    # Run Docker tests only
-pnpm nx test:docker:clean-post auth-js  # Stop Docker containers
-```
-
-#### Development Testing
-
-For actively developing and debugging tests:
-
-```bash
-# Start Supabase CLI once
-pnpm nx test:infra auth-js
-
-# Run tests multiple times (faster since instance stays up)
-pnpm nx test:suite auth-js
-
-# Clean up when done
-pnpm nx test:clean-post auth-js
-```
-
-#### Test Infrastructure
-
-| Suite        | Infrastructure | Configuration               |
-| ------------ | -------------- | --------------------------- |
-| CLI Tests    | Supabase CLI   | `test/supabase/config.toml` |
-| Docker Tests | Docker Compose | `infra/docker-compose.yml`  |
-
-### Contributing
-
-We welcome contributions! Please see our [Contributing Guide](../../../CONTRIBUTING.md) for details on how to get started.
-
-For major changes or if you're unsure about something, please open an issue first to discuss your proposed changes.
+If Ollama is not installed or the model has not been pulled, the app shows a clear analysis failure message and does not display fake nutrition results.
