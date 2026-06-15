@@ -472,7 +472,7 @@ async function renderDrinkHistory() {
       if (b.sugarG) bits.push(`${b.sugarG}g sugar`);
       if (b.alcoholServings) bits.push(`~${Math.round(b.alcoholServings * 10) / 10} drinks`);
       const note = b.notes ? ` — ${b.notes}` : "";
-      return `<div class="history-item"><div><strong>${b.type}</strong><span>${whenLabel(b.at)}${note}</span></div><b>${bits.join(" · ")}</b></div>`;
+      return historyItem(b.type, `${whenLabel(b.at)}${note}`, bits.join(" · "), "beverages", b.id);
     })
     .join("");
 }
@@ -497,9 +497,34 @@ async function renderHistory() {
         " · " +
         new Date(m.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       const note = m.notes ? ` — ${m.notes}` : "";
-      return `<div class="history-item"><div><strong>${m.timing}</strong><span>${when}${note}</span></div><b>${kcal} kcal</b></div>`;
+      return historyItem(m.timing, `${when}${note}`, `${kcal} kcal`, "meals", m.id);
     })
     .join("");
+}
+
+// Shared history row with a delete control.
+function historyItem(title, sub, value, collection, id) {
+  return `<div class="history-item">
+    <div><strong>${title}</strong><span>${sub}</span></div>
+    <b>${value}</b>
+    <button class="delete-btn" data-collection="${collection}" data-id="${id}" aria-label="Delete entry" title="Delete">×</button>
+  </div>`;
+}
+
+const RERENDER = {
+  meals: renderHistory,
+  beverages: renderDrinkHistory,
+  activities: renderTrack,
+  bodyEntries: renderTrack,
+};
+
+async function handleDeleteClick(event) {
+  const btn = event.target.closest(".delete-btn");
+  if (!btn) return;
+  if (!confirm("Delete this entry? This can't be undone.")) return;
+  await store.deleteRecord(btn.dataset.collection, btn.dataset.id);
+  const rerender = RERENDER[btn.dataset.collection];
+  if (rerender) await rerender();
 }
 
 // ---------------------------------------------------------------------------
@@ -687,7 +712,7 @@ async function renderTrack() {
           const bits = [`${a.durationMin} min`];
           if (a.caloriesBurned) bits.push(`${a.caloriesBurned} kcal`);
           if (a.distanceMi) bits.push(`${a.distanceMi} mi`);
-          return `<div class="history-item"><div><strong>${TYPE_LABELS[a.type] || a.type}</strong><span>${whenLabel(a.at)}</span></div><b>${bits.join(" · ")}</b></div>`;
+          return historyItem(TYPE_LABELS[a.type] || a.type, whenLabel(a.at), bits.join(" · "), "activities", a.id);
         })
         .join("")
     : '<p class="empty-history">No workouts yet.</p>';
@@ -702,7 +727,7 @@ async function renderTrack() {
           if (b.bodyFatPct != null) bits.push(`${b.bodyFatPct}% fat`);
           if (b.fastingGlucose != null) bits.push(`${b.fastingGlucose} mg/dL`);
           if (b.restingHr != null) bits.push(`${b.restingHr} bpm`);
-          return `<div class="history-item"><div><strong>Weigh-in</strong><span>${whenLabel(b.at)}</span></div><b>${bits.join(" · ")}</b></div>`;
+          return historyItem("Weigh-in", whenLabel(b.at), bits.join(" · "), "bodyEntries", b.id);
         })
         .join("")
     : '<p class="empty-history">No body readings yet.</p>';
@@ -739,6 +764,7 @@ $("#analyzeDrink").addEventListener("click", analyzeDrink);
 $("#saveWorkout").addEventListener("click", logWorkout);
 $("#saveBody").addEventListener("click", logBodyEntry);
 $("#resetData").addEventListener("click", resetData);
+document.addEventListener("click", handleDeleteClick);
 fillBeverageTypes();
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {

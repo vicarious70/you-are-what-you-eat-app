@@ -79,6 +79,16 @@ export function createLocalStore() {
     async listBodyEntries(userId) {
       return byUser(db().bodyEntries, userId);
     },
+
+    // Delete a single record by id from any collection.
+    async deleteRecord(collection, id) {
+      const data = db();
+      if (!Array.isArray(data[collection])) return false;
+      const before = data[collection].length;
+      data[collection] = data[collection].filter((r) => r.id !== id);
+      persist(data);
+      return data[collection].length < before;
+    },
   };
 }
 

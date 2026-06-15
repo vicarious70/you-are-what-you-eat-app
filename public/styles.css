@@ -1182,3 +1182,29 @@ textarea {
   margin-bottom: 6px;
   line-height: 1.45;
 }
+
+/* ---- Per-item delete control ---- */
+.history-item {
+  position: relative;
+}
+.delete-btn {
+  flex: none;
+  margin-left: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  background: #fff;
+  color: #b23b3b;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+.delete-btn:hover {
+  background: #fdecec;
+  border-color: #e3a3a3;
+}
