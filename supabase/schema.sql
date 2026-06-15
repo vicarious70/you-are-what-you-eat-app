@@ -70,6 +70,28 @@ create table if not exists public.meals (
 create index if not exists meals_user_at_idx on public.meals (user_id, at desc);
 
 -- ---------------------------------------------------------------------------
+-- beverages — Beverage DNA (judged separately from meals)
+-- ---------------------------------------------------------------------------
+create table if not exists public.beverages (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid        not null references auth.users (id) on delete cascade,
+  at                timestamptz not null default now(),
+  type              text        not null default 'Water',
+  serving_oz        numeric     not null default 12,
+  calories          int         not null default 0,
+  sugar_g           int         not null default 0,
+  carbs_g           int         not null default 0,
+  caffeine_mg       int         not null default 0,
+  protein_g         int         not null default 0,
+  alcohol_servings  numeric     not null default 0,
+  notes             text        not null default '',
+  tags              text[]      not null default '{}',
+  source            text        not null default 'manual',
+  created_at        timestamptz not null default now()
+);
+create index if not exists beverages_user_at_idx on public.beverages (user_id, at desc);
+
+-- ---------------------------------------------------------------------------
 -- activities — Workout DNA
 -- ---------------------------------------------------------------------------
 create table if not exists public.activities (
@@ -139,6 +161,7 @@ create trigger profiles_touch_updated_at
 -- ---------------------------------------------------------------------------
 alter table public.profiles      enable row level security;
 alter table public.meals         enable row level security;
+alter table public.beverages     enable row level security;
 alter table public.activities    enable row level security;
 alter table public.body_entries  enable row level security;
 alter table public.weekly_reviews enable row level security;
@@ -151,6 +174,10 @@ create policy "profiles_self" on public.profiles
 -- owner-by-user_id policy applied to the remaining tables.
 drop policy if exists "meals_owner" on public.meals;
 create policy "meals_owner" on public.meals
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+drop policy if exists "beverages_owner" on public.beverages;
+create policy "beverages_owner" on public.beverages
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "activities_owner" on public.activities;

@@ -18,6 +18,7 @@
 
     <nav class="tab-bar" id="tabBar" hidden>
       <button class="tab is-active" data-tab="log">Log Meal</button>
+      <button class="tab" data-tab="drink">Log Drink</button>
       <button class="tab" data-tab="track">Track</button>
       <button class="tab" data-tab="dna">Health DNA</button>
       <button class="tab" data-tab="review">Weekly Review</button>
@@ -243,6 +244,47 @@
             <button id="saveBody" class="primary-button" type="button">Save entry</button>
           </div>
           <div id="bodyHistory" class="meal-history"></div>
+        </article>
+      </section>
+
+      <!-- ============================ LOG DRINK (Beverage DNA) ============================ -->
+      <section class="screen" data-screen="drink">
+        <article class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Beverage DNA</p><h2>Log a Drink</h2></div>
+            <span id="drinkStatus" class="scan-status">Ready</span>
+          </div>
+          <p class="muted">Drinks are judged on their own — sugar, caffeine, and alcohol add up fast in liquid form.</p>
+          <div class="form-grid">
+            <label>Beverage <select id="bevType"></select></label>
+            <label>Size (oz) <input type="number" id="bevOz" min="1" max="64" step="0.5" placeholder="standard" /></label>
+            <label class="wide-field">Notes <input type="text" id="bevNotes" placeholder="optional — brand, extra shot, mixer" /></label>
+          </div>
+          <div class="action-row">
+            <button id="analyzeDrink" class="primary-button" type="button">Analyze drink</button>
+          </div>
+        </article>
+
+        <article class="panel" id="drinkResult" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">Beverage Impact</p><h2>What This Drink May Do</h2></div>
+            <span id="drinkBadge" class="scan-status"></span>
+          </div>
+          <div id="drinkTags" class="vital-signals"></div>
+          <div id="alcoholDNA" class="alcohol-dna" hidden></div>
+          <div class="qa-grid">
+            <div class="qa-card"><p class="eyebrow">What happened</p><p id="bWhat"></p></div>
+            <div class="qa-card"><p class="eyebrow">Why it happened</p><p id="bWhy"></p></div>
+            <div class="qa-card"><p class="eyebrow">Where it's leading</p><p id="bWhere"></p></div>
+            <div class="qa-card"><p class="eyebrow">What to do next</p><ul id="bNext"></ul></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">History</p><h2>Recent Drinks</h2></div>
+          </div>
+          <div id="drinkHistory" class="meal-history"></div>
         </article>
       </section>
 

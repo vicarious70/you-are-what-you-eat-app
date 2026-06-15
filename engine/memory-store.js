@@ -4,6 +4,7 @@
 export function createMemoryStore() {
   const profiles = new Map();
   const meals = [];
+  const beverages = [];
   const activities = [];
   const bodyEntries = [];
   const dnaCache = new Map();
@@ -25,6 +26,13 @@ export function createMemoryStore() {
     },
     async listMeals(userId) {
       return byUser(meals, userId);
+    },
+    async addBeverage(beverage) {
+      beverages.push(beverage);
+      return beverage;
+    },
+    async listBeverages(userId) {
+      return byUser(beverages, userId);
     },
     async addActivity(activity) {
       activities.push(activity);

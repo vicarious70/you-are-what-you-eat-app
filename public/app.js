@@ -6,7 +6,7 @@
 // If the vision backend isn't reachable, we fall back to a context-based
 // estimate so logging still works — but the photo is always the primary path.
 
-import { HealthDNAEngine, consumptionDNA } from "/engine/index.js";
+import { HealthDNAEngine, consumptionDNA, BEVERAGE_TYPES } from "/engine/index.js";
 import { createLocalStore, clearLocalData } from "/store-local.js";
 
 const $ = (sel) => document.querySelector(sel);
@@ -407,10 +407,74 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("is-active", t.dataset.tab === name));
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === name));
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (name === "drink") renderDrinkHistory();
   if (name === "track") renderTrack();
   if (name === "dna") renderDNA();
   if (name === "review") renderReview();
   if (name === "profile") loadProfile();
+}
+
+// ---------------------------------------------------------------------------
+// Beverage DNA — log a drink, show "What This Drink May Do"
+// ---------------------------------------------------------------------------
+
+function fillBeverageTypes() {
+  $("#bevType").innerHTML = BEVERAGE_TYPES.map((t) => `<option>${t}</option>`).join("");
+}
+
+async function analyzeDrink() {
+  const { analysis, beverage } = await engine.logBeverage({
+    userId: UID,
+    type: $("#bevType").value,
+    servingOz: $("#bevOz").value ? Number($("#bevOz").value) : null,
+    notes: $("#bevNotes").value.trim(),
+  });
+
+  $("#drinkResult").hidden = false;
+  $("#drinkBadge").textContent = `${beverage.servingOz}oz · ${beverage.calories} kcal`;
+  $("#drinkTags").innerHTML = analysis.whatItMayDo
+    .map((t) => `<div class="signal-card ${t.className}"><span>${t.label}</span><p>${t.note}</p></div>`)
+    .join("");
+
+  const alc = $("#alcoholDNA");
+  if (analysis.alcohol) {
+    alc.hidden = false;
+    alc.innerHTML = `<p class="eyebrow">Alcohol DNA</p><p>${analysis.alcohol.note}</p>`;
+  } else {
+    alc.hidden = true;
+  }
+
+  const q = analysis.questions;
+  $("#bWhat").textContent = q.whatHappened;
+  $("#bWhy").textContent = q.whyItHappened;
+  $("#bWhere").textContent = q.whereLeading;
+  $("#bNext").innerHTML = q.whatNext.map((s) => `<li>${s}</li>`).join("");
+
+  $("#bevOz").value = "";
+  $("#bevNotes").value = "";
+  $("#drinkStatus").textContent = "Logged";
+  setTimeout(() => ($("#drinkStatus").textContent = "Ready"), 1500);
+  await renderDrinkHistory();
+  smoothScrollTo("#drinkResult");
+}
+
+async function renderDrinkHistory() {
+  const drinks = (await store.listBeverages(UID)).slice().reverse();
+  const el = $("#drinkHistory");
+  if (!drinks.length) {
+    el.innerHTML = '<p class="empty-history">No drinks logged yet.</p>';
+    return;
+  }
+  el.innerHTML = drinks
+    .slice(0, 12)
+    .map((b) => {
+      const bits = [`${b.calories} kcal`];
+      if (b.sugarG) bits.push(`${b.sugarG}g sugar`);
+      if (b.alcoholServings) bits.push(`~${Math.round(b.alcoholServings * 10) / 10} drinks`);
+      const note = b.notes ? ` — ${b.notes}` : "";
+      return `<div class="history-item"><div><strong>${b.type}</strong><span>${whenLabel(b.at)}${note}</span></div><b>${bits.join(" · ")}</b></div>`;
+    })
+    .join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -450,7 +514,8 @@ function confidenceTag(c) {
 
 async function renderDNA() {
   const dna = await engine.getHealthDNA(UID);
-  $("#dnaCount").textContent = `${dna.mealsAnalyzed} ${dna.mealsAnalyzed === 1 ? "meal" : "meals"}`;
+  const total = (dna.mealsAnalyzed || 0) + (dna.beveragesAnalyzed || 0);
+  $("#dnaCount").textContent = `${total} ${total === 1 ? "entry" : "entries"}`;
   const works = dna.works || [];
   const hurts = dna.doesNotWork || [];
   const li = (i) => `<li><span>${i.summary}</span>${confidenceTag(i.confidence)}</li>`;
@@ -473,8 +538,14 @@ async function renderReview() {
   const s = review.sections;
   const card = (sec) => `<div class="review-section"><p class="eyebrow">${sec.headline}</p><p>${sec.body}</p></div>`;
   const focus = review.nextWeekFocus;
+  const learned = review.learnedThisWeek || [];
+  const learnedCard = learned.length
+    ? `<div class="review-section learned"><p class="eyebrow">What We Learned This Week</p>
+        <ul>${learned.map((l) => `<li>${l}</li>`).join("")}</ul></div>`
+    : "";
   $("#reviewBody").innerHTML =
-    card(s.nutrition) + card(s.activity) + card(s.body) + card(s.progress) + card(s.mindset) +
+    card(s.nutrition) + card(s.beverage) + card(s.activity) + card(s.progress) + card(s.recovery) + card(s.mindset) +
+    learnedCard +
     `<div class="review-section focus"><p class="eyebrow">${focus.headline}</p><p>${focus.body}</p>
       <ul>${focus.items.map((f) => `<li>${f}</li>`).join("")}</ul></div>`;
 }
@@ -664,9 +735,11 @@ $("#cameraPhoto").addEventListener("change", handlePhoto);
 $("#analyzeMeal").addEventListener("click", analyzeMeal);
 $("#clearMeal").addEventListener("click", clearMeal);
 $("#saveProfile").addEventListener("click", saveProfile);
+$("#analyzeDrink").addEventListener("click", analyzeDrink);
 $("#saveWorkout").addEventListener("click", logWorkout);
 $("#saveBody").addEventListener("click", logBodyEntry);
 $("#resetData").addEventListener("click", resetData);
+fillBeverageTypes();
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {
     const missing = missingRequired();

@@ -23,6 +23,7 @@ function db() {
   const data = load();
   data.profiles = data.profiles || {};
   data.meals = data.meals || [];
+  data.beverages = data.beverages || [];
   data.activities = data.activities || [];
   data.bodyEntries = data.bodyEntries || [];
   return data;
@@ -50,6 +51,15 @@ export function createLocalStore() {
     },
     async listMeals(userId) {
       return byUser(db().meals, userId);
+    },
+    async addBeverage(beverage) {
+      const data = db();
+      data.beverages.push(beverage);
+      persist(data);
+      return beverage;
+    },
+    async listBeverages(userId) {
+      return byUser(db().beverages, userId);
     },
     async addActivity(activity) {
       const data = db();

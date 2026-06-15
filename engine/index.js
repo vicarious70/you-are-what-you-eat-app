@@ -20,13 +20,20 @@
 
 import { createProfile, createMeal, createActivity, createBodyEntry } from "./schema.js";
 import { analyzeMeal, consumptionDNA } from "./meal-to-body.js";
+import { createBeverage, analyzeBeverage } from "./beverage.js";
 import { learnHealthDNA, whatWorks, whatDoesNotWork } from "./learning.js";
 import { generateWeeklyReview } from "./weekly-review.js";
 
 export * from "./schema.js";
 export { analyzeMeal, consumptionDNA } from "./meal-to-body.js";
+export { createBeverage, analyzeBeverage, BEVERAGE_TYPES, beverageDefaults } from "./beverage.js";
 export { learnHealthDNA, whatWorks, whatDoesNotWork } from "./learning.js";
 export { generateWeeklyReview, weekRange, weekStart } from "./weekly-review.js";
+
+// Stores that predate beverages won't have these methods; treat as empty.
+async function listBeveragesSafe(store, userId) {
+  return store.listBeverages ? store.listBeverages(userId) : [];
+}
 
 export class HealthDNAEngine {
   constructor(store) {
@@ -48,6 +55,15 @@ export class HealthDNAEngine {
     return { meal, analysis, dna };
   }
 
+  // Log a beverage and return its Beverage DNA ("what this drink may do").
+  async logBeverage(input) {
+    const profile = (await this.store.getProfile(input.userId)) || createProfile({ id: input.userId });
+    const beverage = await this.store.addBeverage(createBeverage({ ...input, userId: profile.id }));
+    const dna = await this.computeDNA(profile.id);
+    const analysis = analyzeBeverage(beverage, profile, dna);
+    return { beverage, analysis, dna };
+  }
+
   async logActivity(input) {
     return this.store.addActivity(createActivity(input));
   }
@@ -59,8 +75,8 @@ export class HealthDNAEngine {
   // Recompute the user's Health DNA from their full meal history. Cheap enough
   // to run on demand; cache via store.saveDNA if the store supports it.
   async computeDNA(userId) {
-    const meals = await this.store.listMeals(userId);
-    const dna = learnHealthDNA(userId, meals);
+    const [meals, beverages] = await Promise.all([this.store.listMeals(userId), listBeveragesSafe(this.store, userId)]);
+    const dna = learnHealthDNA(userId, meals, beverages);
     if (typeof this.store.saveDNA === "function") await this.store.saveDNA(dna);
     return dna;
   }
@@ -72,16 +88,18 @@ export class HealthDNAEngine {
 
   // The headline weekly artifact.
   async weeklyReview(userId, date = new Date()) {
-    const [profile, meals, activities, bodyEntries] = await Promise.all([
+    const [profile, meals, beverages, activities, bodyEntries] = await Promise.all([
       this.store.getProfile(userId),
       this.store.listMeals(userId),
+      listBeveragesSafe(this.store, userId),
       this.store.listActivities ? this.store.listActivities(userId) : Promise.resolve([]),
       this.store.listBodyEntries ? this.store.listBodyEntries(userId) : Promise.resolve([]),
     ]);
-    const dna = learnHealthDNA(userId, meals);
+    const dna = learnHealthDNA(userId, meals, beverages);
     return generateWeeklyReview({
       profile: profile || createProfile({ id: userId }),
       meals,
+      beverages,
       activities,
       bodyEntries,
       dna,

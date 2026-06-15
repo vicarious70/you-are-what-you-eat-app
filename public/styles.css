@@ -1154,3 +1154,31 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---- Beverage DNA ---- */
+.alcohol-dna {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fdf6ec;
+  border: 1px solid #f0dcae;
+}
+.alcohol-dna p:last-child {
+  margin: 4px 0 0;
+  color: #6b5a36;
+  line-height: 1.5;
+}
+.review-section.learned {
+  background: #eef5ee;
+  border-left: 4px solid #3f7a4f;
+}
+.review-section.learned ul,
+.review-section.focus ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+.review-section.learned li,
+.review-section.focus li {
+  margin-bottom: 6px;
+  line-height: 1.45;
+}

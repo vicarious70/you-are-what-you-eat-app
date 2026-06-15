@@ -80,7 +80,26 @@ const FACTOR_LABELS = {
   "cheesy-creamy": "cheesy or creamy dishes",
   "walk-after-meal": "walking after the meal",
   "late night": "late-night eating",
+  alcohol: "alcohol",
+  caffeine: "caffeinated drinks",
+  hydration: "staying hydrated",
+  "high-calorie-drink": "high-calorie drinks",
+  "diet-drink": "diet drinks",
 };
+
+// Beverages join the same learning loop, so "what works for you" spans meals
+// AND drinks (e.g. sugary drinks repeatedly hurting glucose).
+function beverageFactors(bev) {
+  return [...(bev.tags || [])];
+}
+
+function beverageOutcomes(bev) {
+  // Liquid sugar hits glucose faster than food, so use a lower threshold.
+  const glucose = clamp01(1 - Math.max(0, (bev.sugarG || 0) - 10) / 55);
+  // Only protein-forward drinks meaningfully affect fullness.
+  const fullness = (bev.proteinG || 0) >= 15 ? clamp01(bev.proteinG / 30) : null;
+  return { glucose, fullness, energy: null };
+}
 
 const DIMENSION_LABELS = {
   glucose: "glucose stability",
@@ -111,8 +130,11 @@ function confidenceFrom(samplesWith, samplesWithout, effect) {
 // Main entry: build the Health DNA from a user's meals.
 // ---------------------------------------------------------------------------
 
-export function learnHealthDNA(userId, meals = []) {
-  const enriched = meals.map((m) => ({ factors: mealFactors(m), outcomes: mealOutcomes(m) }));
+export function learnHealthDNA(userId, meals = [], beverages = []) {
+  const enriched = [
+    ...meals.map((m) => ({ factors: mealFactors(m), outcomes: mealOutcomes(m) })),
+    ...beverages.map((b) => ({ factors: beverageFactors(b), outcomes: beverageOutcomes(b) })),
+  ];
 
   // collect the universe of factors actually seen
   const allFactors = new Set();
@@ -186,6 +208,7 @@ export function learnHealthDNA(userId, meals = []) {
     userId,
     insights,
     mealsAnalyzed: meals.length,
+    beveragesAnalyzed: beverages.length,
     updatedAt: new Date().toISOString(),
   };
 }
