@@ -422,6 +422,7 @@ function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("is-active", t.dataset.tab === name));
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === name));
   window.scrollTo({ top: 0, behavior: "smooth" });
+  if (name === "home") renderDashboard();
   if (name === "drink") renderDrinkHistory();
   if (name === "track") renderTrack();
   if (name === "dna") renderDNA();
@@ -490,6 +491,79 @@ async function renderDrinkHistory() {
       return historyItem(b.type, `${whenLabel(b.at)}${note}`, bits.join(" · "), "beverages", b.id);
     })
     .join("");
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard (Home) — DNA summary cards
+// ---------------------------------------------------------------------------
+
+function dashCard(title, value, sub, goto, tone = "") {
+  return `<button class="dash-card ${tone}" data-goto="${goto}" type="button">
+    <span class="dash-card-label">${title}</span>
+    <span class="dash-card-value">${value}</span>
+    <span class="dash-card-sub">${sub}</span>
+  </button>`;
+}
+
+async function renderDashboard() {
+  const profile = (await store.getProfile(UID)) || {};
+  const name = profile.name && profile.name !== "Friend" ? profile.name : "there";
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  $("#dashHello").textContent = `${greet}, ${name}`;
+  $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+
+  const [review, dna, body] = await Promise.all([
+    engine.weeklyReview(UID),
+    engine.getHealthDNA(UID),
+    store.listBodyEntries(UID),
+  ]);
+  const s = review.sections;
+  const latestWeight = [...body].reverse().find((b) => b.weightLb != null);
+  const latestGlucose = [...body].reverse().find((b) => b.fastingGlucose != null);
+  const learned = (dna.works && dna.works[0]) || (dna.doesNotWork && dna.doesNotWork[0]);
+
+  const cards = [];
+
+  // Featured: What We Learned About You
+  cards.push(`<button class="dash-card featured" data-goto="dna" type="button">
+    <span class="dash-card-label">What We Learned About You</span>
+    <span class="dash-card-value">${learned ? learned.summary : "Your patterns will appear here"}</span>
+    <span class="dash-card-sub">${learned ? "Tap to see your full Health DNA" : "Keep logging — the engine is learning you"}</span>
+  </button>`);
+
+  const meals = s.nutrition.stats.meals || 0;
+  cards.push(
+    dashCard("Meal DNA", `${meals} ${meals === 1 ? "meal" : "meals"}`,
+      s.nutrition.stats.avgCaloriesPerDay ? `~${s.nutrition.stats.avgCaloriesPerDay} kcal/day this week` : "Tap to log a meal", "log")
+  );
+
+  const drinks = s.beverage.stats.drinks || 0;
+  cards.push(
+    dashCard("Beverage DNA", `${drinks} ${drinks === 1 ? "drink" : "drinks"}`,
+      drinks ? `${s.beverage.stats.sugaryDrinks || 0} high-sugar · ${s.beverage.stats.alcoholServings || 0} alcohol` : "Tap to log a drink", "drink")
+  );
+
+  const workouts = s.activity.stats.workouts || 0;
+  cards.push(
+    dashCard("Workout DNA", `${workouts} ${workouts === 1 ? "workout" : "workouts"}`,
+      `${s.activity.stats.totalMinutes || 0} min this week`, "track")
+  );
+
+  cards.push(
+    dashCard("Glucose DNA", latestGlucose ? `${latestGlucose.fastingGlucose} mg/dL` : "—",
+      latestGlucose ? "latest fasting glucose" : "Log a reading under Track", "track")
+  );
+
+  const dir = s.recovery.stats.direction;
+  cards.push(
+    dashCard("Progress", latestWeight ? `${latestWeight.weightLb} lb` : (profile.goal || "Set a goal"),
+      dir && dir !== "unknown" ? `weight trend ${dir}` : "Log a weigh-in to track trend", "track")
+  );
+
+  cards.push(dashCard("Weekly DNA Report", "Your week in review", "Tap to open the full report", "review", "wide"));
+
+  $("#dashCards").innerHTML = cards.join("");
 }
 
 // ---------------------------------------------------------------------------
@@ -664,7 +738,7 @@ function finishOnboarding() {
   $("#advancedPanel").hidden = false;
   $("#saveProfile").textContent = "Save profile";
   $("#tabBar").hidden = false;
-  showTab("log");
+  showTab("home");
 }
 
 // ---------------------------------------------------------------------------
@@ -786,6 +860,10 @@ $("#saveWorkout").addEventListener("click", logWorkout);
 $("#saveBody").addEventListener("click", logBodyEntry);
 $("#resetData").addEventListener("click", resetData);
 document.addEventListener("click", handleDeleteClick);
+$("#dashCards").addEventListener("click", (e) => {
+  const card = e.target.closest("[data-goto]");
+  if (card) showTab(card.dataset.goto);
+});
 fillBeverageTypes();
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {
@@ -823,7 +901,7 @@ async function bootApp() {
   }
   if (onboarded) {
     $("#tabBar").hidden = false;
-    showTab("log");
+    showTab("home");
   } else {
     startOnboarding();
   }

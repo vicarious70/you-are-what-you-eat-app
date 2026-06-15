@@ -1272,3 +1272,74 @@ body.js-loading .app-shell,
 body.js-loading #tabBar {
   display: none !important;
 }
+
+/* ---- Dashboard (Home) ---- */
+.dash-greeting {
+  margin: 4px 4px 16px;
+}
+.dash-greeting h2 {
+  margin: 2px 0 0;
+  font-size: 1.5rem;
+}
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+.dash-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+  background: #fff;
+  cursor: pointer;
+  font: inherit;
+  transition: transform 0.12s, box-shadow 0.12s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+.dash-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+.dash-card:active {
+  transform: translateY(0);
+}
+.dash-card-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #3f7a4f;
+}
+.dash-card-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1f2a22;
+  line-height: 1.2;
+}
+.dash-card-sub {
+  font-size: 0.82rem;
+  color: #6b7a6f;
+}
+.dash-card.featured,
+.dash-card.wide {
+  grid-column: 1 / -1;
+}
+.dash-card.featured {
+  background: linear-gradient(135deg, #2f7a43, #245e34);
+  border: none;
+  color: #fff;
+}
+.dash-card.featured .dash-card-label {
+  color: rgba(255, 255, 255, 0.85);
+}
+.dash-card.featured .dash-card-value {
+  color: #fff;
+  font-size: 1.1rem;
+}
+.dash-card.featured .dash-card-sub {
+  color: rgba(255, 255, 255, 0.8);
+}

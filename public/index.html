@@ -35,17 +35,27 @@
     </section>
 
     <nav class="tab-bar" id="tabBar" hidden>
-      <button class="tab is-active" data-tab="log">Log Meal</button>
+      <button class="tab is-active" data-tab="home">Home</button>
+      <button class="tab" data-tab="log">Log Meal</button>
       <button class="tab" data-tab="drink">Log Drink</button>
       <button class="tab" data-tab="track">Track</button>
       <button class="tab" data-tab="dna">Health DNA</button>
-      <button class="tab" data-tab="review">Weekly Review</button>
+      <button class="tab" data-tab="review">Weekly</button>
       <button class="tab" data-tab="profile">Profile</button>
     </nav>
 
     <main class="app-shell">
+      <!-- ============================ HOME (dashboard) ============================ -->
+      <section class="screen is-active" data-screen="home">
+        <div class="dash-greeting">
+          <p class="eyebrow" id="dashEyebrow">Today</p>
+          <h2 id="dashHello">Welcome</h2>
+        </div>
+        <div id="dashCards" class="dash-grid"></div>
+      </section>
+
       <!-- ============================ LOG MEAL (photo first) ============================ -->
-      <section class="screen is-active" data-screen="log">
+      <section class="screen" data-screen="log">
         <article class="panel upload-panel">
           <div class="panel-heading">
             <div>
