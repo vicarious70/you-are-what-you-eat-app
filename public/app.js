@@ -13,7 +13,7 @@ import { createLocalStore, clearLocalData } from "/store-local.js";
 // exactly as it is today: local-only, no login. When ON, the app shows a login
 // gate and syncs to Supabase — but gracefully falls back to local mode if the
 // cloud backend isn't configured (e.g. running locally without Supabase env).
-const CLOUD_ENABLED = false;
+const CLOUD_ENABLED = true;
 
 const $ = (sel) => document.querySelector(sel);
 
