@@ -16,6 +16,24 @@
       <p class="motto">Today's plate becomes tomorrow's body.</p>
     </header>
 
+    <section id="authGate" class="auth-gate" hidden>
+      <article class="panel auth-card">
+        <p class="eyebrow">Welcome</p>
+        <h2 id="authTitle">Sign in</h2>
+        <p class="muted" id="authSubtitle">Your Health DNA syncs securely across your devices.</p>
+        <form id="authForm" class="auth-form" autocomplete="on">
+          <label>Email <input type="email" id="authEmail" autocomplete="email" placeholder="you@email.com" required /></label>
+          <label>Password <input type="password" id="authPassword" autocomplete="current-password" placeholder="••••••••" minlength="6" required /></label>
+          <div id="authError" class="context-alert" hidden></div>
+          <button id="authSubmit" class="primary-button" type="submit">Sign in</button>
+        </form>
+        <p class="auth-toggle">
+          <span id="authTogglePrompt">New here?</span>
+          <button id="authToggle" type="button" class="link-button">Create an account</button>
+        </p>
+      </article>
+    </section>
+
     <nav class="tab-bar" id="tabBar" hidden>
       <button class="tab is-active" data-tab="log">Log Meal</button>
       <button class="tab" data-tab="drink">Log Drink</button>
@@ -392,6 +410,7 @@
           </div>
           <p class="muted">Clears everything stored on this device — profile, meals, workouts, and body entries. This can't be undone.</p>
           <div class="action-row">
+            <button id="signOut" class="secondary-button" type="button" hidden>Sign out</button>
             <button id="resetData" class="secondary-button danger" type="button">Reset all data</button>
           </div>
         </article>

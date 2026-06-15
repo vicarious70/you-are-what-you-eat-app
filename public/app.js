@@ -9,11 +9,22 @@
 import { HealthDNAEngine, consumptionDNA, BEVERAGE_TYPES } from "/engine/index.js";
 import { createLocalStore, clearLocalData } from "/store-local.js";
 
-const $ = (sel) => document.querySelector(sel);
-const store = createLocalStore();
-const engine = new HealthDNAEngine(store);
+// Master switch for cloud mode (login + Supabase sync). OFF keeps the app
+// exactly as it is today: local-only, no login. When ON, the app shows a login
+// gate and syncs to Supabase — but gracefully falls back to local mode if the
+// cloud backend isn't configured (e.g. running locally without Supabase env).
+const CLOUD_ENABLED = false;
 
-function getUserId() {
+const $ = (sel) => document.querySelector(sel);
+
+// store/engine/UID are assigned during boot (local immediately, or cloud after
+// login). Handlers only touch them after the user can interact, so `let` is safe.
+let store = createLocalStore();
+let engine = new HealthDNAEngine(store);
+let UID = "";
+let cloudActive = false; // true once a Supabase-backed session is in use
+
+function getLocalUserId() {
   let id = localStorage.getItem("ywye.userid");
   if (!id) {
     id = "local_" + Math.random().toString(36).slice(2, 10);
@@ -21,7 +32,6 @@ function getUserId() {
   }
   return id;
 }
-const UID = getUserId();
 
 let selectedMealImage = "";
 let loadingTimers = [];
@@ -738,6 +748,12 @@ async function renderTrack() {
 // ---------------------------------------------------------------------------
 
 async function resetData() {
+  if (cloudActive) {
+    // In cloud mode your data lives in your account — delete entries individually,
+    // or sign out. (A full account wipe is a future addition.)
+    alert("Your data is saved to your account. Delete individual entries with the × buttons, or use Sign out.");
+    return;
+  }
   if (!confirm("Delete everything stored on this device — profile, meals, workouts, and body entries?")) return;
   clearLocalData();
   localStorage.removeItem("ywye.onboarded");
@@ -784,11 +800,115 @@ requiredFields.forEach(([id]) =>
   })
 );
 
-// Boot: first-time users complete their profile before anything unlocks.
-renderHistory();
-if (isOnboarded()) {
-  $("#tabBar").hidden = false;
-  showTab("log");
+// ---------------------------------------------------------------------------
+// Boot — local mode, or cloud mode (login + Supabase) behind CLOUD_ENABLED.
+// ---------------------------------------------------------------------------
+
+// Render history then either open the app or run onboarding. Shared by both modes.
+async function bootApp() {
+  await renderHistory();
+  let onboarded = isOnboarded();
+  if (cloudActive) {
+    // For a signed-in user, "onboarded" means they already have a cloud profile.
+    const p = await store.getProfile(UID);
+    onboarded = Boolean(p && p.name && p.name !== "Friend");
+    if (onboarded) localStorage.setItem("ywye.onboarded", "1");
+  }
+  if (onboarded) {
+    $("#tabBar").hidden = false;
+    showTab("log");
+  } else {
+    startOnboarding();
+  }
+}
+
+function bootLocal() {
+  cloudActive = false;
+  store = createLocalStore();
+  engine = new HealthDNAEngine(store);
+  UID = getLocalUserId();
+  bootApp();
+}
+
+let authMode = "signin";
+function showAuthMessage(msg) {
+  $("#authError").hidden = false;
+  $("#authError").textContent = msg;
+}
+
+async function startCloud() {
+  const cloud = await import("/cloud.js");
+  const { createCloudStore } = await import("/store-cloud.js");
+  const cfg = await cloud.loadConfig();
+  if (!cfg.configured) {
+    // No Supabase env (e.g. local dev) — quietly use local mode so the app works.
+    bootLocal();
+    return;
+  }
+
+  // Wire the login form.
+  $("#authToggle").addEventListener("click", () => {
+    authMode = authMode === "signin" ? "signup" : "signin";
+    const signup = authMode === "signup";
+    $("#authTitle").textContent = signup ? "Create account" : "Sign in";
+    $("#authSubmit").textContent = signup ? "Create account" : "Sign in";
+    $("#authTogglePrompt").textContent = signup ? "Already have an account?" : "New here?";
+    $("#authToggle").textContent = signup ? "Sign in" : "Create an account";
+    $("#authPassword").autocomplete = signup ? "new-password" : "current-password";
+    $("#authError").hidden = true;
+  });
+  $("#authForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("#authEmail").value.trim();
+    const password = $("#authPassword").value;
+    $("#authError").hidden = true;
+    const submit = $("#authSubmit");
+    const label = submit.textContent;
+    submit.disabled = true;
+    submit.textContent = "Please wait…";
+    try {
+      if (authMode === "signup") {
+        await cloud.signUp(email, password);
+        if (!(await cloud.getSession())) {
+          showAuthMessage("Account created. Check your email to confirm, then sign in.");
+          authMode = "signin";
+        }
+      } else {
+        await cloud.signIn(email, password);
+      }
+    } catch (err) {
+      showAuthMessage(err.message || "Something went wrong. Try again.");
+    } finally {
+      submit.disabled = false;
+      submit.textContent = label;
+    }
+  });
+  $("#signOut").addEventListener("click", async () => {
+    await cloud.signOut();
+  });
+
+  // React to login/logout.
+  cloud.onAuthChange(async (session) => {
+    if (session) {
+      UID = session.user.id;
+      const client = await cloud.getClient();
+      store = createCloudStore(client, UID);
+      engine = new HealthDNAEngine(store);
+      cloudActive = true;
+      $("#authGate").hidden = true;
+      $("#signOut").hidden = false;
+      await bootApp();
+    } else {
+      cloudActive = false;
+      $("#tabBar").hidden = true;
+      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
+      $("#authGate").hidden = false;
+    }
+  });
+}
+
+if (CLOUD_ENABLED) {
+  startCloud();
 } else {
-  startOnboarding();
+  bootLocal();
 }

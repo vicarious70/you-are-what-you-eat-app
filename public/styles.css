@@ -1208,3 +1208,59 @@ textarea {
   background: #fdecec;
   border-color: #e3a3a3;
 }
+
+/* ---- Auth / login gate ---- */
+.auth-gate {
+  max-width: 460px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+.auth-card h2 {
+  margin: 4px 0 6px;
+}
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 16px;
+}
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #36473b;
+}
+.auth-form input {
+  font: inherit;
+  padding: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  border-radius: 12px;
+  background: #fff;
+}
+.auth-form .primary-button {
+  margin-top: 4px;
+}
+.auth-toggle {
+  margin-top: 16px;
+  text-align: center;
+  color: #4b5b4f;
+  font-size: 0.9rem;
+}
+.link-button {
+  background: none;
+  border: none;
+  color: #2f7a43;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0 4px;
+}
+
+/* The hidden attribute must always win over component display rules
+   (e.g. .tab-bar uses display:flex, which otherwise overrides [hidden]). */
+[hidden] {
+  display: none !important;
+}
