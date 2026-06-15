@@ -1264,3 +1264,11 @@ textarea {
 [hidden] {
   display: none !important;
 }
+
+/* Keep the tabbed app hidden until JS decides what to show (prevents the app
+   flashing before the sign-in gate in cloud mode). The header and auth gate
+   are outside .app-shell, so they can still appear. */
+body.js-loading .app-shell,
+body.js-loading #tabBar {
+  display: none !important;
+}

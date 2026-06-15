@@ -811,6 +811,8 @@ requiredFields.forEach(([id]) =>
 
 // Render history then either open the app or run onboarding. Shared by both modes.
 async function bootApp() {
+  // Reveal the tabbed app (it's hidden by body.js-loading until now).
+  document.body.classList.remove("js-loading");
   await renderHistory();
   let onboarded = isOnboarded();
   if (cloudActive) {
@@ -829,6 +831,7 @@ async function bootApp() {
 
 function bootLocal() {
   cloudActive = false;
+  $("#authGate").hidden = true;
   store = createLocalStore();
   engine = new HealthDNAEngine(store);
   UID = getLocalUserId();
@@ -905,6 +908,7 @@ async function startCloud() {
       await bootApp();
     } else {
       cloudActive = false;
+      document.body.classList.add("js-loading"); // hide the tabbed app behind the gate
       $("#tabBar").hidden = true;
       document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
       $("#authGate").hidden = false;
@@ -912,7 +916,24 @@ async function startCloud() {
   });
 }
 
+// A persisted Supabase session is stored under an "sb-...-auth-token" key.
+function hasPersistedSession() {
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("sb-") && k.endsWith("-auth-token")) return true;
+  }
+  return false;
+}
+
 if (CLOUD_ENABLED) {
+  // Don't let the app paint before we know who the user is. If there's no saved
+  // session, show the sign-in gate immediately; otherwise stay on the loading
+  // state and let onAuthChange reveal the app (no gate flash for returning users).
+  document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
+  $("#tabBar").hidden = true;
+  // The gate lives outside .app-shell, so it shows even while js-loading keeps
+  // the tabbed app hidden.
+  if (!hasPersistedSession()) $("#authGate").hidden = false;
   startCloud();
 } else {
   bootLocal();
