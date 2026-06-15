@@ -546,11 +546,22 @@ async function renderDashboard() {
   $("#dashHello").textContent = `${greet}, ${name}`;
   $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
 
-  const [review, dna, body] = await Promise.all([
+  const [review, dna, body, nudges] = await Promise.all([
     engine.weeklyReview(UID),
     engine.getHealthDNA(UID),
     store.listBodyEntries(UID),
+    engine.nudges(UID),
   ]);
+
+  // Predictive nudges — timely, personalized prompts.
+  $("#dashNudges").innerHTML = nudges
+    .map(
+      (n) => `<div class="nudge nudge-${n.tone}">
+        <div class="nudge-text"><strong>${n.title}</strong><p>${n.body}</p></div>
+        ${n.action ? `<button class="nudge-action" data-goto="${n.action.goto}" type="button">${n.action.label}</button>` : ""}
+      </div>`
+    )
+    .join("");
   const s = review.sections;
   const latestWeight = [...body].reverse().find((b) => b.weightLb != null);
   const latestGlucose = [...body].reverse().find((b) => b.fastingGlucose != null);
@@ -902,6 +913,10 @@ document.addEventListener("click", handleDeleteClick);
 $("#dashCards").addEventListener("click", (e) => {
   const card = e.target.closest("[data-goto]");
   if (card) showTab(card.dataset.goto);
+});
+$("#dashNudges").addEventListener("click", (e) => {
+  const action = e.target.closest("[data-goto]");
+  if (action) showTab(action.dataset.goto);
 });
 fillBeverageTypes();
 requiredFields.forEach(([id]) =>
