@@ -10,7 +10,7 @@ const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const OLLAMA_URL = process.env.OLLAMA_URL || "http://127.0.0.1:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llava:latest";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const HOST = process.env.HOST || "0.0.0.0";
 
 const mimeTypes = {

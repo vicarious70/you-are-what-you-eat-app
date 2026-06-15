@@ -107,7 +107,7 @@ In Vercel, add these environment variables before redeploying:
 
 ```sh
 GEMINI_API_KEY=your_new_gemini_key_here
-GEMINI_MODEL=gemini-3.5-flash
+GEMINI_MODEL=gemini-2.5-flash
 ```
 
 Do not paste the API key into `index.html`, `app.js`, or any public file. The key
