@@ -418,9 +418,42 @@ async function handlePhoto(event) {
 // Tabs
 // ---------------------------------------------------------------------------
 
+// Bottom-nav groups: Log = meal/drink, Insights = health DNA/weekly.
+const NAV = [
+  { nav: "home", screens: ["home"] },
+  { nav: "log", screens: ["log", "drink"], sub: [["log", "Meal"], ["drink", "Drink"]] },
+  { nav: "track", screens: ["track"] },
+  { nav: "insights", screens: ["dna", "review"], sub: [["dna", "Health DNA"], ["review", "Weekly"]] },
+  { nav: "you", screens: ["profile"] },
+];
+const navForScreen = (screen) => NAV.find((n) => n.screens.includes(screen));
+
+// Keep the bottom bar + sub-tabs in sync with the active screen.
+function syncNav(screen) {
+  const item = navForScreen(screen);
+  document
+    .querySelectorAll(".bottom-nav-item")
+    .forEach((b) => b.classList.toggle("is-active", Boolean(item) && b.dataset.nav === item.nav));
+  const sub = $("#subnav");
+  if (item && item.sub) {
+    sub.hidden = false;
+    sub.innerHTML = item.sub
+      .map(([scr, label]) => `<button class="subnav-item ${scr === screen ? "is-active" : ""}" data-screen="${scr}" type="button">${label}</button>`)
+      .join("");
+  } else {
+    sub.hidden = true;
+    sub.innerHTML = "";
+  }
+}
+
+function hideChrome() {
+  $("#bottomNav").hidden = true;
+  $("#subnav").hidden = true;
+}
+
 function showTab(name) {
-  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("is-active", t.dataset.tab === name));
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === name));
+  syncNav(name);
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (name === "home") renderDashboard();
   if (name === "drink") renderDrinkHistory();
@@ -722,7 +755,7 @@ function isOnboarded() {
 }
 
 function startOnboarding() {
-  $("#tabBar").hidden = true;
+  hideChrome();
   $("#onboardWelcome").hidden = false;
   $("#profileHeading").hidden = true;
   $("#advancedPanel").hidden = true;
@@ -737,7 +770,7 @@ function finishOnboarding() {
   $("#profileHeading").hidden = false;
   $("#advancedPanel").hidden = false;
   $("#saveProfile").textContent = "Save profile";
-  $("#tabBar").hidden = false;
+  $("#bottomNav").hidden = false;
   showTab("home");
 }
 
@@ -846,9 +879,15 @@ async function resetData() {
 // Boot
 // ---------------------------------------------------------------------------
 
-$("#tabBar").addEventListener("click", (e) => {
-  const tab = e.target.closest(".tab");
-  if (tab) showTab(tab.dataset.tab);
+$("#bottomNav").addEventListener("click", (e) => {
+  const b = e.target.closest(".bottom-nav-item");
+  if (!b) return;
+  const item = NAV.find((n) => n.nav === b.dataset.nav);
+  if (item) showTab(item.screens[0]);
+});
+$("#subnav").addEventListener("click", (e) => {
+  const b = e.target.closest(".subnav-item");
+  if (b) showTab(b.dataset.screen);
 });
 $("#mealPhoto").addEventListener("change", handlePhoto);
 $("#cameraPhoto").addEventListener("change", handlePhoto);
@@ -987,7 +1026,7 @@ async function startCloud() {
     } else {
       cloudActive = false;
       document.body.classList.add("js-loading"); // hide the tabbed app behind the gate
-      $("#tabBar").hidden = true;
+      hideChrome();
       document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
       $("#authGate").hidden = false;
     }
@@ -1008,7 +1047,7 @@ if (CLOUD_ENABLED) {
   // session, show the sign-in gate immediately; otherwise stay on the loading
   // state and let onAuthChange reveal the app (no gate flash for returning users).
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("is-active"));
-  $("#tabBar").hidden = true;
+  hideChrome();
   // The gate lives outside .app-shell, so it shows even while js-loading keeps
   // the tabbed app hidden.
   if (!hasPersistedSession()) $("#authGate").hidden = false;

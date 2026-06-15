@@ -1269,8 +1269,93 @@ textarea {
    flashing before the sign-in gate in cloud mode). The header and auth gate
    are outside .app-shell, so they can still appear. */
 body.js-loading .app-shell,
-body.js-loading #tabBar {
+body.js-loading #subnav,
+body.js-loading #bottomNav {
   display: none !important;
+}
+
+/* ---- Bottom navigation bar ---- */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  background: rgba(251, 251, 247, 0.96);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+}
+.bottom-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: none;
+  background: none;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #7c8a80;
+  font: inherit;
+}
+.bottom-nav-item .bn-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+  filter: grayscale(0.4);
+  opacity: 0.7;
+  transition: filter 0.15s, opacity 0.15s, transform 0.15s;
+}
+.bottom-nav-item .bn-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.bottom-nav-item.is-active {
+  color: #2f7a43;
+}
+.bottom-nav-item.is-active .bn-icon {
+  filter: none;
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+/* Make room so the fixed bar never covers content. */
+.app-shell {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+}
+
+/* ---- Sub-tabs (segmented control for grouped sections) ---- */
+.subnav {
+  display: flex;
+  gap: 6px;
+  padding: 10px clamp(14px, 4vw, 56px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: rgba(251, 251, 247, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+}
+.subnav-item {
+  flex: 1;
+  padding: 9px 12px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  font-weight: 600;
+  color: #4b5b4f;
+  cursor: pointer;
+}
+.subnav-item.is-active {
+  background: #2f7a43;
+  border-color: #2f7a43;
+  color: #fff;
 }
 
 /* ---- Dashboard (Home) ---- */

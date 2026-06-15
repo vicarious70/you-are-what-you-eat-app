@@ -34,15 +34,8 @@
       </article>
     </section>
 
-    <nav class="tab-bar" id="tabBar" hidden>
-      <button class="tab is-active" data-tab="home">Home</button>
-      <button class="tab" data-tab="log">Log Meal</button>
-      <button class="tab" data-tab="drink">Log Drink</button>
-      <button class="tab" data-tab="track">Track</button>
-      <button class="tab" data-tab="dna">Health DNA</button>
-      <button class="tab" data-tab="review">Weekly</button>
-      <button class="tab" data-tab="profile">Profile</button>
-    </nav>
+    <!-- Sub-tabs appear here only for grouped sections (Log: Meal/Drink, Insights: Health DNA/Weekly). -->
+    <div class="subnav" id="subnav" hidden></div>
 
     <main class="app-shell">
       <!-- ============================ HOME (dashboard) ============================ -->
@@ -426,6 +419,14 @@
         </article>
       </section>
     </main>
+
+    <nav class="bottom-nav" id="bottomNav" hidden>
+      <button class="bottom-nav-item is-active" data-nav="home" type="button"><span class="bn-icon">🏠</span><span class="bn-label">Home</span></button>
+      <button class="bottom-nav-item" data-nav="log" type="button"><span class="bn-icon">🍽️</span><span class="bn-label">Log</span></button>
+      <button class="bottom-nav-item" data-nav="track" type="button"><span class="bn-icon">📈</span><span class="bn-label">Track</span></button>
+      <button class="bottom-nav-item" data-nav="insights" type="button"><span class="bn-icon">🧬</span><span class="bn-label">Insights</span></button>
+      <button class="bottom-nav-item" data-nav="you" type="button"><span class="bn-icon">👤</span><span class="bn-label">You</span></button>
+    </nav>
 
     <script type="module" src="app.js"></script>
   </body>
