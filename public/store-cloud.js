@@ -72,8 +72,9 @@ const rowToMeal = (r) => ({
   createdAt: r.created_at,
 });
 
+// Note: we deliberately omit `id` on inserts — Supabase generates a UUID
+// (the engine's string ids aren't valid UUIDs). The returned row's id is used.
 const mealToRow = (m) => ({
-  id: m.id,
   user_id: m.userId,
   at: m.at,
   meal_type: m.mealType,
@@ -117,7 +118,6 @@ const rowToBeverage = (r) => ({
 });
 
 const beverageToRow = (b) => ({
-  id: b.id,
   user_id: b.userId,
   at: b.at,
   type: b.type,
@@ -146,7 +146,6 @@ const rowToActivity = (r) => ({
 });
 
 const activityToRow = (a) => ({
-  id: a.id,
   user_id: a.userId,
   at: a.at,
   type: a.type,
@@ -169,7 +168,6 @@ const rowToBody = (r) => ({
 });
 
 const bodyToRow = (b) => ({
-  id: b.id,
   user_id: b.userId,
   at: b.at,
   weight_lb: b.weightLb,

@@ -244,26 +244,31 @@ async function analyzeMeal() {
     served = estimateNutrition();
   }
 
-  const { analysis } = await engine.logMeal({
-    userId: UID,
-    mealType: $("#mealType").value,
-    portion: $("#portion").value,
-    timing: $("#mealTiming").value,
-    hunger: $("#hunger").value,
-    eatenAmount: $("#eatenAmount").value,
-    notes: $("#mealDescription").value.trim(),
-    foods: visionResult ? visionResult.foods : [],
-    source: usedFallback ? "estimate" : "vision",
-    signals: { postMealWalk: $("#postMealWalk").checked },
-    ...served,
-  });
-
-  renderResult(analysis, visionResult, usedFallback);
-  await renderHistory();
-  clearLoadingTimers();
-  setAnalyzing(false);
-  $("#scanStatus").textContent = "Analyzed";
-  smoothScrollTo("#plateRead"); // land on the results
+  try {
+    const { analysis } = await engine.logMeal({
+      userId: UID,
+      mealType: $("#mealType").value,
+      portion: $("#portion").value,
+      timing: $("#mealTiming").value,
+      hunger: $("#hunger").value,
+      eatenAmount: $("#eatenAmount").value,
+      notes: $("#mealDescription").value.trim(),
+      foods: visionResult ? visionResult.foods : [],
+      source: usedFallback ? "estimate" : "vision",
+      signals: { postMealWalk: $("#postMealWalk").checked },
+      ...served,
+    });
+    renderResult(analysis, visionResult, usedFallback);
+    await renderHistory();
+    clearLoadingTimers();
+    setAnalyzing(false);
+    $("#scanStatus").textContent = "Analyzed";
+    smoothScrollTo("#plateRead"); // land on the results
+  } catch (error) {
+    // Never leave the user stuck on the spinner — surface what went wrong.
+    renderFailure(`Could not save this meal: ${error.message}`);
+    smoothScrollTo("#analysisNotice");
+  }
 }
 
 function signalCard(title, sig) {
