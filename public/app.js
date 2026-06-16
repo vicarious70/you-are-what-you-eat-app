@@ -28,6 +28,16 @@ function toast(message) {
   toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
 }
 
+// Surface unexpected errors instead of failing to a blank screen.
+window.addEventListener("error", (e) => {
+  console.error("Uncaught error:", e.error || e.message);
+  toast("Something went wrong — try again");
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Unhandled promise rejection:", e.reason);
+  toast("Couldn't load — check your connection");
+});
+
 // store/engine/UID are assigned during boot (local immediately, or cloud after
 // login). Handlers only touch them after the user can interact, so `let` is safe.
 let store = createLocalStore();
@@ -463,16 +473,30 @@ function hideChrome() {
   $("#subnav").hidden = true;
 }
 
+const SCREEN_RENDERERS = {
+  home: renderDashboard,
+  drink: renderDrinkHistory,
+  track: renderTrack,
+  dna: renderDNA,
+  review: renderReview,
+  profile: loadProfile,
+};
+
 function showTab(name) {
+  // Activate the screen FIRST so it's always visible, even if its data load
+  // fails — a render error must never leave a blank screen.
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === name));
   syncNav(name);
   window.scrollTo({ top: 0, behavior: "smooth" });
-  if (name === "home") renderDashboard();
-  if (name === "drink") renderDrinkHistory();
-  if (name === "track") renderTrack();
-  if (name === "dna") renderDNA();
-  if (name === "review") renderReview();
-  if (name === "profile") loadProfile();
+  const render = SCREEN_RENDERERS[name];
+  if (render) {
+    Promise.resolve()
+      .then(render)
+      .catch((err) => {
+        console.error(`Failed to load "${name}":`, err);
+        toast(`Couldn't load ${name}: ${err.message || "error"}`);
+      });
+  }
 }
 
 // ---------------------------------------------------------------------------
