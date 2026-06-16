@@ -17,6 +17,17 @@ const CLOUD_ENABLED = true;
 
 const $ = (sel) => document.querySelector(sel);
 
+// Brief "saved" confirmation toast.
+let toastTimer;
+function toast(message) {
+  const el = document.getElementById("toast");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
 // store/engine/UID are assigned during boot (local immediately, or cloud after
 // login). Handlers only touch them after the user can interact, so `let` is safe.
 let store = createLocalStore();
@@ -263,6 +274,7 @@ async function analyzeMeal() {
     clearLoadingTimers();
     setAnalyzing(false);
     $("#scanStatus").textContent = "Analyzed";
+    toast("Meal saved");
     smoothScrollTo("#plateRead"); // land on the results
   } catch (error) {
     // Never leave the user stuck on the spinner — surface what went wrong.
@@ -501,6 +513,7 @@ async function analyzeDrink() {
 
   $("#bevOz").value = "";
   $("#bevNotes").value = "";
+  toast("Drink saved");
   $("#drinkStatus").textContent = "Logged";
   setTimeout(() => ($("#drinkStatus").textContent = "Ready"), 1500);
   await renderDrinkHistory();
@@ -748,6 +761,7 @@ async function saveProfile() {
     medicalConditions: conditions,
   });
 
+  toast("Profile saved");
   // Completing the profile for the first time finishes onboarding.
   if (!isOnboarded()) {
     finishOnboarding();
@@ -807,6 +821,7 @@ async function logWorkout() {
   $("#wDuration").value = "";
   $("#wCalories").value = "";
   $("#wDistance").value = "";
+  toast("Workout saved");
   $("#workoutStatus").textContent = "Saved";
   setTimeout(() => ($("#workoutStatus").textContent = ""), 1500);
   renderTrack();
@@ -823,6 +838,7 @@ async function logBodyEntry() {
   }
   await engine.logBody({ userId: UID, weightLb: weight, bodyFatPct: fat, fastingGlucose: glucose, restingHr: hr });
   ["#bWeight", "#bFat", "#bGlucose", "#bHr"].forEach((s) => ($(s).value = ""));
+  toast("Weigh-in saved");
   $("#bodyStatus").textContent = "Saved";
   setTimeout(() => ($("#bodyStatus").textContent = ""), 1500);
   renderTrack();
