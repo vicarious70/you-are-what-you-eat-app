@@ -575,6 +575,17 @@ function dashCard(title, value, sub, goto, tone = "") {
   </button>`;
 }
 
+// Build the animated DNA helix once (pure-CSS twisting ladder of base pairs).
+function renderHelix() {
+  const el = document.getElementById("dnaHelix");
+  if (!el || el.childElementCount) return;
+  const n = 24;
+  el.innerHTML = Array.from(
+    { length: n },
+    (_, i) => `<span class="rung" style="animation-delay:${(i * 0.085).toFixed(3)}s"></span>`
+  ).join("");
+}
+
 async function renderDashboard() {
   const profile = (await store.getProfile(UID)) || {};
   const name = profile.name && profile.name !== "Friend" ? profile.name : "there";
@@ -583,10 +594,11 @@ async function renderDashboard() {
   $("#dashHello").textContent = `${greet}, ${name}`;
   $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
 
-  const [review, dna, body, nudges] = await Promise.all([
+  const [review, dna, body, activities, nudges] = await Promise.all([
     engine.weeklyReview(UID),
     engine.getHealthDNA(UID),
     store.listBodyEntries(UID),
+    store.listActivities ? store.listActivities(UID) : Promise.resolve([]),
     engine.nudges(UID),
   ]);
 
@@ -604,14 +616,24 @@ async function renderDashboard() {
   const latestGlucose = [...body].reverse().find((b) => b.fastingGlucose != null);
   const learned = (dna.works && dna.works[0]) || (dna.doesNotWork && dna.doesNotWork[0]);
 
-  const cards = [];
+  // --- DNA hero: "% mapped" grows as the engine gathers evidence about you ---
+  renderHelix();
+  const insightCount = (dna.insights || []).filter((i) => i.direction !== "neutral").length;
+  const mapped = Math.min(
+    100,
+    Math.round((dna.mealsAnalyzed || 0) * 5 + (dna.beveragesAnalyzed || 0) * 4 + activities.length * 5 + body.length * 6 + insightCount * 10)
+  );
+  $("#dnaMappedLabel").textContent = `${mapped}%`;
+  const fill = $("#dnaMeterFill");
+  fill.style.width = "0%";
+  requestAnimationFrame(() => requestAnimationFrame(() => (fill.style.width = `${mapped}%`)));
+  $("#dnaHeroSub").textContent = learned
+    ? learned.summary
+    : mapped > 0
+      ? "Decoding your patterns — keep logging to sharpen them."
+      : "Log your first meal and the engine starts decoding you.";
 
-  // Featured: What We Learned About You
-  cards.push(`<button class="dash-card featured" data-goto="dna" type="button">
-    <span class="dash-card-label">What We Learned About You</span>
-    <span class="dash-card-value">${learned ? learned.summary : "Your patterns will appear here"}</span>
-    <span class="dash-card-sub">${learned ? "Tap to see your full Health DNA" : "Keep logging — the engine is learning you"}</span>
-  </button>`);
+  const cards = [];
 
   const meals = s.nutrition.stats.meals || 0;
   cards.push(
@@ -958,6 +980,13 @@ $("#dashNudges").addEventListener("click", (e) => {
   const action = e.target.closest("[data-goto]");
   if (action) showTab(action.dataset.goto);
 });
+$("#dnaHero").addEventListener("click", () => showTab("dna"));
+$("#dnaHero").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    showTab("dna");
+  }
+});
 fillBeverageTypes();
 requiredFields.forEach(([id]) =>
   document.getElementById(id).addEventListener("change", () => {
@@ -985,20 +1014,32 @@ requiredFields.forEach(([id]) =>
 async function bootApp() {
   // Reveal the tabbed app (it's hidden by body.js-loading until now).
   document.body.classList.remove("js-loading");
-  await renderHistory();
+
   let onboarded = isOnboarded();
   if (cloudActive) {
     // For a signed-in user, "onboarded" means they already have a cloud profile.
-    const p = await store.getProfile(UID);
-    onboarded = Boolean(p && p.name && p.name !== "Friend");
-    if (onboarded) localStorage.setItem("ywye.onboarded", "1");
+    // Never let a failed network call blank the screen — fall back to the local
+    // flag and keep going.
+    try {
+      const p = await store.getProfile(UID);
+      onboarded = Boolean(p && p.name && p.name !== "Friend");
+      if (onboarded) localStorage.setItem("ywye.onboarded", "1");
+    } catch (err) {
+      console.error("Profile lookup failed during boot:", err);
+      toast("Couldn't reach your account — opening anyway");
+    }
   }
+
   if (onboarded) {
     $("#bottomNav").hidden = false;
     showTab("home");
   } else {
     startOnboarding();
   }
+
+  // Meal history is non-critical to opening the app — load it in the background
+  // and never let it block or blank the boot.
+  renderHistory().catch((err) => console.error("History render failed:", err));
 }
 
 function bootLocal() {
