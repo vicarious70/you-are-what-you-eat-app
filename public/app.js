@@ -1063,9 +1063,11 @@ async function startCloud() {
       submit.textContent = label;
     }
   });
-  $("#signOut").addEventListener("click", async () => {
+  const doSignOut = async () => {
     await cloud.signOut();
-  });
+  };
+  $("#signOut").addEventListener("click", doSignOut);
+  $("#homeSignOut").addEventListener("click", doSignOut);
 
   // React to login/logout.
   cloud.onAuthChange(async (session) => {
@@ -1077,6 +1079,7 @@ async function startCloud() {
       cloudActive = true;
       $("#authGate").hidden = true;
       $("#signOut").hidden = false;
+      $("#homeSignOut").hidden = false;
       await bootApp();
     } else {
       cloudActive = false;

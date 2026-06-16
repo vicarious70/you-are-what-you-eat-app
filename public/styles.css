@@ -1366,6 +1366,10 @@ body.js-loading #bottomNav {
 
 /* ---- Dashboard (Home) ---- */
 .dash-greeting {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
   margin: 4px 4px 16px;
 }
 .dash-greeting h2 {
@@ -1519,4 +1523,23 @@ body.js-loading #bottomNav {
 .toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Subtle outline button (e.g. Home sign-out) */
+.ghost-button {
+  flex: none;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.ghost-button:hover {
+  color: var(--ink);
+  border-color: var(--muted);
 }
