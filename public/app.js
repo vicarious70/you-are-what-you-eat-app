@@ -954,7 +954,7 @@ async function bootApp() {
     if (onboarded) localStorage.setItem("ywye.onboarded", "1");
   }
   if (onboarded) {
-    $("#tabBar").hidden = false;
+    $("#bottomNav").hidden = false;
     showTab("home");
   } else {
     startOnboarding();
