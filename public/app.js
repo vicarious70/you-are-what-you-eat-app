@@ -1039,31 +1039,34 @@ async function bootApp() {
   // Reveal the tabbed app (it's hidden by body.js-loading until now).
   document.body.classList.remove("js-loading");
 
-  let onboarded = isOnboarded();
-  if (cloudActive) {
-    // For a signed-in user, "onboarded" means they already have a cloud profile.
-    // Never let a failed network call blank the screen — fall back to the local
-    // flag and keep going.
-    try {
-      const p = await store.getProfile(UID);
-      onboarded = Boolean(p && p.name && p.name !== "Friend");
-      if (onboarded) localStorage.setItem("ywye.onboarded", "1");
-    } catch (err) {
-      console.error("Profile lookup failed during boot:", err);
-      toast("Couldn't reach your account — opening anyway");
-    }
-  }
-
-  if (onboarded) {
+  // Show a screen IMMEDIATELY from the local flag. We must never await a network
+  // call before painting a screen — a hung request would leave a blank app-shell.
+  if (isOnboarded()) {
     $("#bottomNav").hidden = false;
     showTab("home");
   } else {
     startOnboarding();
   }
 
-  // Meal history is non-critical to opening the app — load it in the background
-  // and never let it block or blank the boot.
+  // Meal history loads in the background and can never block the boot.
   renderHistory().catch((err) => console.error("History render failed:", err));
+
+  // In cloud mode, reconcile onboarding status against the cloud profile in the
+  // background. If it turns out the user is onboarded but we're showing the
+  // onboarding screen (e.g. signed in on a new device), switch them to Home.
+  if (cloudActive) {
+    try {
+      const p = await store.getProfile(UID);
+      const cloudOnboarded = Boolean(p && p.name && p.name !== "Friend");
+      if (cloudOnboarded && !isOnboarded()) {
+        localStorage.setItem("ywye.onboarded", "1");
+        $("#bottomNav").hidden = false;
+        showTab("home");
+      }
+    } catch (err) {
+      console.error("Cloud profile reconcile failed:", err);
+    }
+  }
 }
 
 function bootLocal() {
