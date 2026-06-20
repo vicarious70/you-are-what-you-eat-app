@@ -54,6 +54,8 @@ let engine = new HealthDNAEngine(store);
 let UID = "";
 let cloudActive = false; // true once a Supabase-backed session is in use
 let bootWatchdog = null; // safety timer so the boot never sits blank
+let appData = null; // the one shared dataset every screen renders from
+let activeScreen = "home"; // which screen is currently showing
 
 function getLocalUserId() {
   let id = localStorage.getItem("ywye.userid");
@@ -307,7 +309,7 @@ async function analyzeMeal() {
       ...served,
     });
     renderResult(analysis, visionResult, usedFallback, fallbackReason);
-    await renderHistory();
+    refreshAppData();
     clearLoadingTimers();
     setAnalyzing(false);
     $("#scanStatus").textContent = "Analyzed";
@@ -505,30 +507,14 @@ function hideChrome() {
   $("#subnav").hidden = true;
 }
 
-const SCREEN_RENDERERS = {
-  home: renderDashboard,
-  drink: renderDrinkHistory,
-  track: renderTrack,
-  dna: renderDNA,
-  review: renderReview,
-  profile: loadProfile,
-};
-
 function showTab(name) {
-  // Activate the screen FIRST so it's always visible, even if its data load
-  // fails — a render error must never leave a blank screen.
+  activeScreen = name;
+  // Activate the screen, then render it synchronously from the shared cached
+  // data — instant, and a render error can never blank the screen.
   document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("is-active", s.dataset.screen === name));
   syncNav(name);
   window.scrollTo({ top: 0, behavior: "smooth" });
-  const render = SCREEN_RENDERERS[name];
-  if (render) {
-    Promise.resolve()
-      .then(render)
-      .catch((err) => {
-        console.error(`Failed to load "${name}":`, err);
-        toast(`Couldn't load ${name}: ${err.message || "error"}`);
-      });
-  }
+  renderActiveScreen();
 }
 
 // ---------------------------------------------------------------------------
@@ -572,12 +558,12 @@ async function analyzeDrink() {
   toast("Drink saved");
   $("#drinkStatus").textContent = "Logged";
   setTimeout(() => ($("#drinkStatus").textContent = "Ready"), 1500);
-  await renderDrinkHistory();
+  refreshAppData();
   smoothScrollTo("#drinkResult");
 }
 
-async function renderDrinkHistory() {
-  const drinks = (await store.listBeverages(UID)).slice().reverse();
+function renderDrinkHistory() {
+  const drinks = currentData().beverages.slice().reverse();
   const el = $("#drinkHistory");
   if (!drinks.length) {
     el.innerHTML = '<p class="empty-history">No drinks logged yet.</p>';
@@ -647,6 +633,7 @@ async function fetchUserData() {
     store.listBodyEntries ? store.listBodyEntries(UID) : Promise.resolve([]),
   ]);
   const data = { profile: profile || {}, meals, beverages, activities, bodyEntries };
+  appData = data;
   try {
     localStorage.setItem(dashCacheKey(), JSON.stringify(data));
   } catch {
@@ -655,12 +642,44 @@ async function fetchUserData() {
   return data;
 }
 
+// The single source every screen renders from: in-memory if loaded, else the
+// last cached copy, else empty. Never throws.
+function currentData() {
+  return appData || readDashCache() || { profile: {}, meals: [], beverages: [], activities: [], bodyEntries: [] };
+}
+
+// Fetch fresh data once, then re-render whatever screen is showing.
+async function refreshAppData() {
+  try {
+    await fetchUserData();
+  } catch (err) {
+    console.error("Data refresh failed:", err);
+  }
+  renderActiveScreen();
+}
+
+// Render the active screen from currentData() — synchronous, never blanks.
+function renderActiveScreen() {
+  try {
+    if (activeScreen === "home") renderDashboard();
+    else if (activeScreen === "drink") renderDrinkHistory();
+    else if (activeScreen === "track") renderTrack();
+    else if (activeScreen === "dna") renderDNA();
+    else if (activeScreen === "review") renderReview();
+    else if (activeScreen === "log") renderHistory();
+    else if (activeScreen === "profile") loadProfile();
+  } catch (err) {
+    console.error(`Render "${activeScreen}" failed:`, err);
+  }
+}
+
 // Pure render of the whole dashboard from already-loaded data (no network).
 function renderDashboardData(data) {
   const { profile = {}, meals = [], beverages = [], activities = [], bodyEntries = [] } = data || {};
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const name = profile.name && profile.name !== "Friend" ? profile.name : "";
+  $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
   $("#dashHello").textContent = name ? `${greet}, ${name}` : greet;
 
   // Everything below is computed in-memory by the pure engine functions.
@@ -728,48 +747,17 @@ function renderDashboardData(data) {
   $("#dashCards").innerHTML = cards.join("");
 }
 
-async function renderDashboard() {
-  // Paint the date + a generic greeting + helix immediately.
-  $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-  const hour = new Date().getHours();
-  $("#dashHello").textContent = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+function renderDashboard() {
   renderHelix();
-
-  // Instant render from the last-known cache (no network wait). If there's no
-  // cache yet, show shimmer skeletons.
-  const cached = readDashCache();
-  if (cached) {
-    try {
-      renderDashboardData(cached);
-    } catch (e) {
-      console.error("Cache render failed:", e);
-    }
-  } else {
-    const skel = (h) => `<div class="skel-box" style="height:${h}px"></div>`;
-    $("#dashNudges").innerHTML = skel(78);
-    $("#dashCards").innerHTML = Array.from({ length: 6 }, () => skel(98)).join("");
-  }
-
-  // Refresh from the source in the background, then re-render.
-  try {
-    const fresh = await fetchUserData();
-    renderDashboardData(fresh);
-  } catch (err) {
-    console.error("Dashboard refresh failed:", err);
-    if (!cached) {
-      $("#dashNudges").innerHTML =
-        '<div class="nudge nudge-info"><div class="nudge-text"><strong>Couldn\'t load your data</strong><p>Check your connection, or sign out and back in.</p></div></div>';
-      $("#dashCards").innerHTML = "";
-    }
-  }
+  renderDashboardData(currentData());
 }
 
 // ---------------------------------------------------------------------------
 // History
 // ---------------------------------------------------------------------------
 
-async function renderHistory() {
-  const meals = (await store.listMeals(UID)).slice().reverse();
+function renderHistory() {
+  const meals = currentData().meals.slice().reverse();
   const el = $("#mealHistory");
   if (!meals.length) {
     el.innerHTML = '<p class="empty-history">No meals logged yet. Your first photo will appear here.</p>';
@@ -798,20 +786,12 @@ function historyItem(title, sub, value, collection, id) {
   </div>`;
 }
 
-const RERENDER = {
-  meals: renderHistory,
-  beverages: renderDrinkHistory,
-  activities: renderTrack,
-  bodyEntries: renderTrack,
-};
-
 async function handleDeleteClick(event) {
   const btn = event.target.closest(".delete-btn");
   if (!btn) return;
   if (!confirm("Delete this entry? This can't be undone.")) return;
   await store.deleteRecord(btn.dataset.collection, btn.dataset.id);
-  const rerender = RERENDER[btn.dataset.collection];
-  if (rerender) await rerender();
+  await refreshAppData(); // refresh the shared dataset and re-render the screen
 }
 
 // ---------------------------------------------------------------------------
@@ -824,8 +804,11 @@ function confidenceTag(c) {
   return `<span class="conf ${strength}">${strength} · ${pct}%</span>`;
 }
 
-async function renderDNA() {
-  const dna = await engine.getHealthDNA(UID);
+function renderDNA() {
+  const { meals, beverages } = currentData();
+  const dna = learnHealthDNA(UID, meals, beverages);
+  dna.works = whatWorks(dna);
+  dna.doesNotWork = whatDoesNotWork(dna);
   const total = (dna.mealsAnalyzed || 0) + (dna.beveragesAnalyzed || 0);
   $("#dnaCount").textContent = `${total} ${total === 1 ? "entry" : "entries"}`;
   const works = dna.works || [];
@@ -840,8 +823,10 @@ async function renderDNA() {
 // Weekly review
 // ---------------------------------------------------------------------------
 
-async function renderReview() {
-  const review = await engine.weeklyReview(UID);
+function renderReview() {
+  const { profile, meals, beverages, activities, bodyEntries } = currentData();
+  const dna = learnHealthDNA(UID, meals, beverages);
+  const review = generateWeeklyReview({ profile, meals, beverages, activities, bodyEntries, dna });
   const start = new Date(review.weekStart);
   const end = new Date(review.weekEnd);
   end.setDate(end.getDate() - 1);
@@ -866,8 +851,8 @@ async function renderReview() {
 // Profile
 // ---------------------------------------------------------------------------
 
-async function loadProfile() {
-  const p = (await store.getProfile(UID)) || {};
+function loadProfile() {
+  const p = currentData().profile || {};
   $("#pName").value = p.name && p.name !== "Friend" ? p.name : "";
   if (p.goal) $("#pGoal").value = p.goal;
   if (p.activityLevel) $("#pActivity").value = p.activityLevel;
@@ -903,6 +888,7 @@ async function saveProfile() {
   });
 
   toast("Profile saved");
+  refreshAppData(); // update the shared dataset (greeting, cards, etc.)
   // Completing the profile for the first time finishes onboarding.
   if (!isOnboarded()) {
     finishOnboarding();
@@ -965,7 +951,7 @@ async function logWorkout() {
   toast("Workout saved");
   $("#workoutStatus").textContent = "Saved";
   setTimeout(() => ($("#workoutStatus").textContent = ""), 1500);
-  renderTrack();
+  refreshAppData();
 }
 
 async function logBodyEntry() {
@@ -982,7 +968,7 @@ async function logBodyEntry() {
   toast("Weigh-in saved");
   $("#bodyStatus").textContent = "Saved";
   setTimeout(() => ($("#bodyStatus").textContent = ""), 1500);
-  renderTrack();
+  refreshAppData();
 }
 
 function whenLabel(at) {
@@ -993,8 +979,8 @@ function whenLabel(at) {
   );
 }
 
-async function renderTrack() {
-  const acts = (await store.listActivities(UID)).slice().reverse();
+function renderTrack() {
+  const acts = currentData().activities.slice().reverse();
   $("#workoutHistory").innerHTML = acts.length
     ? acts
         .slice(0, 10)
@@ -1007,7 +993,7 @@ async function renderTrack() {
         .join("")
     : '<p class="empty-history">No workouts yet.</p>';
 
-  const body = (await store.listBodyEntries(UID)).slice().reverse();
+  const body = currentData().bodyEntries.slice().reverse();
   $("#bodyHistory").innerHTML = body.length
     ? body
         .slice(0, 10)
@@ -1038,8 +1024,8 @@ async function resetData() {
   clearLocalData();
   clearDashCache();
   localStorage.removeItem("ywye.onboarded");
+  appData = null; // drop the in-memory dataset too
   clearMeal();
-  await renderHistory();
   // Back to a clean slate: re-run onboarding.
   startOnboarding();
 }
@@ -1121,23 +1107,18 @@ async function bootApp() {
     startOnboarding();
   }
 
-  // Meal history loads in the background and can never block the boot.
-  renderHistory().catch((err) => console.error("History render failed:", err));
+  // Load the shared dataset once for the whole app. The screen above already
+  // painted from cache; this fetches fresh and re-renders the active screen.
+  await refreshAppData();
 
-  // In cloud mode, reconcile onboarding status against the cloud profile in the
-  // background. If it turns out the user is onboarded but we're showing the
+  // In cloud mode, if the profile shows the user is onboarded but we're on the
   // onboarding screen (e.g. signed in on a new device), switch them to Home.
-  if (cloudActive) {
-    try {
-      const p = await store.getProfile(UID);
-      const cloudOnboarded = Boolean(p && p.name && p.name !== "Friend");
-      if (cloudOnboarded && !isOnboarded()) {
-        localStorage.setItem("ywye.onboarded", "1");
-        $("#bottomNav").hidden = false;
-        showTab("home");
-      }
-    } catch (err) {
-      console.error("Cloud profile reconcile failed:", err);
+  if (cloudActive && !isOnboarded()) {
+    const p = currentData().profile;
+    if (p && p.name && p.name !== "Friend") {
+      localStorage.setItem("ywye.onboarded", "1");
+      $("#bottomNav").hidden = false;
+      showTab("home");
     }
   }
 }
