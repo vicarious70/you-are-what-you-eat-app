@@ -1193,19 +1193,27 @@ async function startCloud() {
   $("#signOut").addEventListener("click", doSignOut);
   $("#homeSignOut").addEventListener("click", doSignOut);
 
-  // React to login/logout.
+  // React to login/logout. Supabase fires this on token refresh / tab focus too,
+  // so we only BOOT (and navigate to Home) once per sign-in — otherwise a
+  // background token refresh would yank the user back to the Home tab.
+  let booted = false;
   cloud.onAuthChange(async (session) => {
     if (session) {
       UID = session.user.id;
-      const client = await cloud.getClient();
-      store = createCloudStore(client, UID);
-      engine = new HealthDNAEngine(store);
-      cloudActive = true;
       $("#authGate").hidden = true;
       $("#signOut").hidden = false;
       $("#homeSignOut").hidden = false;
-      await bootApp();
+      if (!booted) {
+        booted = true;
+        const client = await cloud.getClient();
+        store = createCloudStore(client, UID);
+        engine = new HealthDNAEngine(store);
+        cloudActive = true;
+        await bootApp();
+      }
+      // Subsequent auth events (token refresh, focus) keep the current tab.
     } else {
+      booted = false;
       cloudActive = false;
       document.body.classList.add("js-loading"); // hide the tabbed app behind the gate
       hideChrome();
