@@ -163,8 +163,19 @@ async function analyzeWithGemini(image, context) {
 
   if (!geminiResponse.ok) {
     const details = await geminiResponse.text();
-    console.error("Gemini vision request failed:", details.slice(0, 800));
-    throw new Error("Gemini vision analysis failed. Check GEMINI_API_KEY, model access, and API restrictions.");
+    console.error("Gemini vision request failed:", geminiResponse.status, details.slice(0, 800));
+    // Pass through enough detail to tell a transient failure (429/503/timeout)
+    // from a real config problem (401/403/404).
+    let reason = "";
+    try {
+      reason = JSON.parse(details)?.error?.message || "";
+    } catch {
+      reason = "";
+    }
+    const err = new Error(`Gemini ${geminiResponse.status}${reason ? `: ${reason}` : ""}`);
+    err.statusCode = geminiResponse.status;
+    err.transient = geminiResponse.status === 429 || geminiResponse.status >= 500;
+    throw err;
   }
 
   const payload = await geminiResponse.json();
@@ -206,8 +217,11 @@ async function handler(request, response) {
     sendJson(response, 200, result);
   } catch (error) {
     console.error("Meal analysis failed:", error);
-    sendJson(response, 500, {
+    // Surface the upstream status (e.g. 429 rate limit) so the client can retry
+    // transient failures instead of treating every error as "not configured".
+    sendJson(response, error.statusCode || 500, {
       error: error.message || "Hosted meal analysis failed.",
+      transient: Boolean(error.transient),
     });
   }
 }

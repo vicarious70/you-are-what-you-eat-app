@@ -127,17 +127,31 @@ function context() {
   };
 }
 
-async function requestVisionAnalysis() {
+async function requestVisionAnalysis(attempt = 1) {
   if (location.protocol === "file:") {
     throw new Error("Open the app from a server link, not the raw file, to analyze photos.");
   }
-  const response = await fetch("/api/analyze-meal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: selectedMealImage, context: context() }),
-  });
+  let response;
+  try {
+    response = await fetch("/api/analyze-meal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: selectedMealImage, context: context() }),
+    });
+  } catch (networkError) {
+    // Network blip (common on cellular) — retry once before giving up.
+    if (attempt < 2) return requestVisionAnalysis(attempt + 1);
+    throw new Error("Network error reaching photo analysis.");
+  }
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || "Vision analysis failed.");
+  if (!response.ok) {
+    // Transient server/rate-limit errors: retry once.
+    if (attempt < 2 && (response.status === 429 || response.status >= 500)) {
+      await new Promise((r) => setTimeout(r, 900));
+      return requestVisionAnalysis(attempt + 1);
+    }
+    throw new Error(payload.error || `Vision analysis failed (${response.status}).`);
+  }
   return payload;
 }
 
@@ -257,11 +271,14 @@ async function analyzeMeal() {
   let served;
   let visionResult = null;
   let usedFallback = false;
+  let fallbackReason = "";
   try {
     visionResult = await requestVisionAnalysis();
     served = visionToServed(visionResult);
   } catch (error) {
     usedFallback = true;
+    fallbackReason = error.message || "";
+    console.warn("Photo analysis fell back to estimate:", fallbackReason);
     served = estimateNutrition();
   }
 
@@ -279,7 +296,7 @@ async function analyzeMeal() {
       signals: { postMealWalk: $("#postMealWalk").checked },
       ...served,
     });
-    renderResult(analysis, visionResult, usedFallback);
+    renderResult(analysis, visionResult, usedFallback, fallbackReason);
     await renderHistory();
     clearLoadingTimers();
     setAnalyzing(false);
@@ -298,7 +315,7 @@ function signalCard(title, sig) {
     <span>${title}</span><strong>${sig.level}</strong><p>${sig.note}</p></div>`;
 }
 
-function renderResult(analysis, visionResult, usedFallback) {
+function renderResult(analysis, visionResult, usedFallback, fallbackReason = "") {
   const consumed = analysis.consumption.consumed;
   const served = analysis.consumption.served;
   const ef = analysis.consumption.eatenFraction;
@@ -309,9 +326,14 @@ function renderResult(analysis, visionResult, usedFallback) {
   $("#failureHelp").hidden = true;
   $("#plateRead").hidden = false;
   $("#analysisNotice").classList.remove("error");
-  $("#analysisNotice").textContent = usedFallback
-    ? "Vision backend unavailable — showing a context-based estimate. Connect the backend for true photo analysis."
-    : "Photo analysis complete. The foods and portions below were read from your image.";
+  // Distinguish "backend not set up" from a transient hiccup so the message
+  // isn't misleading when Gemini is actually configured.
+  const notConfigured = /not configured|missing|GEMINI_API_KEY|no private backend|server link/i.test(fallbackReason);
+  $("#analysisNotice").textContent = !usedFallback
+    ? "Photo analysis complete. The foods and portions below were read from your image."
+    : notConfigured
+      ? "Showing a context estimate — photo analysis isn't connected yet."
+      : `Photo analysis didn't go through this time — showing a context estimate. Tap Analyze again to retry.${fallbackReason ? ` (${fallbackReason.slice(0, 80)})` : ""}`;
 
   $("#impactScore").className = `impact-score ${impact.className}`;
   $("#impactScore").textContent = `${impact.score} ${impact.label}`;
