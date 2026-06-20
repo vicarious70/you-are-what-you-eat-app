@@ -1819,3 +1819,26 @@ h1,
 .app-header {
   border-bottom-color: rgba(43, 39, 32, 0.06);
 }
+
+/* Loading shimmer placeholders (dashboard) */
+.skel-box {
+  border-radius: 18px;
+  background: linear-gradient(
+    100deg,
+    rgba(43, 39, 32, 0.05) 28%,
+    rgba(43, 39, 32, 0.09) 50%,
+    rgba(43, 39, 32, 0.05) 72%
+  );
+  background-size: 200% 100%;
+  animation: skelShimmer 1.25s ease-in-out infinite;
+}
+.dash-nudges .skel-box {
+  margin-bottom: 0;
+}
+@keyframes skelShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel-box { animation: none; }
+}

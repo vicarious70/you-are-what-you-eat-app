@@ -6,7 +6,16 @@
 // If the vision backend isn't reachable, we fall back to a context-based
 // estimate so logging still works — but the photo is always the primary path.
 
-import { HealthDNAEngine, consumptionDNA, BEVERAGE_TYPES } from "/engine/index.js";
+import {
+  HealthDNAEngine,
+  consumptionDNA,
+  BEVERAGE_TYPES,
+  generateWeeklyReview,
+  learnHealthDNA,
+  whatWorks,
+  whatDoesNotWork,
+  generateNudges,
+} from "/engine/index.js";
 import { createLocalStore, clearLocalData } from "/store-local.js";
 
 // Master switch for cloud mode (login + Supabase sync). OFF keeps the app
@@ -609,41 +618,58 @@ function renderHelix() {
   ).join("");
 }
 
-async function renderDashboard() {
-  // Paint the greeting + helix FIRST so the screen is never stuck on "Welcome"
-  // even if the cloud data can't load.
+// ---- data cache (stale-while-revalidate) so reloads render instantly ----
+function dashCacheKey() {
+  return "ywye.dash." + (UID || "local");
+}
+function readDashCache() {
+  try {
+    return JSON.parse(localStorage.getItem(dashCacheKey()));
+  } catch {
+    return null;
+  }
+}
+function clearDashCache() {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith("ywye.dash.")) localStorage.removeItem(k);
+  }
+}
+
+// Fetch every collection ONCE (was ~14 redundant queries across the weekly
+// review / DNA / nudges; now 5), cache it, and return it.
+async function fetchUserData() {
+  const [profile, meals, beverages, activities, bodyEntries] = await Promise.all([
+    store.getProfile(UID),
+    store.listMeals(UID),
+    store.listBeverages ? store.listBeverages(UID) : Promise.resolve([]),
+    store.listActivities ? store.listActivities(UID) : Promise.resolve([]),
+    store.listBodyEntries ? store.listBodyEntries(UID) : Promise.resolve([]),
+  ]);
+  const data = { profile: profile || {}, meals, beverages, activities, bodyEntries };
+  try {
+    localStorage.setItem(dashCacheKey(), JSON.stringify(data));
+  } catch {
+    /* storage full — fine, just skip caching */
+  }
+  return data;
+}
+
+// Pure render of the whole dashboard from already-loaded data (no network).
+function renderDashboardData(data) {
+  const { profile = {}, meals = [], beverages = [], activities = [], bodyEntries = [] } = data || {};
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
-  $("#dashHello").textContent = greet;
-  renderHelix();
-
-  let profile = {};
-  try {
-    profile = (await store.getProfile(UID)) || {};
-  } catch (err) {
-    console.error("Dashboard profile load failed:", err);
-  }
   const name = profile.name && profile.name !== "Friend" ? profile.name : "";
   $("#dashHello").textContent = name ? `${greet}, ${name}` : greet;
 
-  let review, dna, body, activities, nudges;
-  try {
-    [review, dna, body, activities, nudges] = await Promise.all([
-      engine.weeklyReview(UID),
-      engine.getHealthDNA(UID),
-      store.listBodyEntries(UID),
-      store.listActivities ? store.listActivities(UID) : Promise.resolve([]),
-      engine.nudges(UID),
-    ]);
-  } catch (err) {
-    console.error("Dashboard data load failed:", err);
-    $("#dashNudges").innerHTML =
-      '<div class="nudge nudge-info"><div class="nudge-text"><strong>Couldn\'t load your data</strong><p>Check your connection, or sign out and back in.</p></div></div>';
-    return;
-  }
+  // Everything below is computed in-memory by the pure engine functions.
+  const dna = learnHealthDNA(UID, meals, beverages);
+  dna.works = whatWorks(dna);
+  dna.doesNotWork = whatDoesNotWork(dna);
+  const review = generateWeeklyReview({ profile, meals, beverages, activities, bodyEntries, dna });
+  const nudges = generateNudges({ profile, meals, beverages, activities, bodyEntries, dna });
 
-  // Predictive nudges — timely, personalized prompts.
   $("#dashNudges").innerHTML = nudges
     .map(
       (n) => `<div class="nudge nudge-${n.tone}">
@@ -652,22 +678,21 @@ async function renderDashboard() {
       </div>`
     )
     .join("");
+
   const s = review.sections;
-  const latestWeight = [...body].reverse().find((b) => b.weightLb != null);
-  const latestGlucose = [...body].reverse().find((b) => b.fastingGlucose != null);
+  const latestWeight = [...bodyEntries].reverse().find((b) => b.weightLb != null);
+  const latestGlucose = [...bodyEntries].reverse().find((b) => b.fastingGlucose != null);
   const learned = (dna.works && dna.works[0]) || (dna.doesNotWork && dna.doesNotWork[0]);
 
-  // --- DNA hero: "% mapped" grows as the engine gathers evidence about you ---
   renderHelix();
   const insightCount = (dna.insights || []).filter((i) => i.direction !== "neutral").length;
   const mapped = Math.min(
     100,
-    Math.round((dna.mealsAnalyzed || 0) * 5 + (dna.beveragesAnalyzed || 0) * 4 + activities.length * 5 + body.length * 6 + insightCount * 10)
+    Math.round((dna.mealsAnalyzed || 0) * 5 + (dna.beveragesAnalyzed || 0) * 4 + activities.length * 5 + bodyEntries.length * 6 + insightCount * 10)
   );
   $("#dnaMappedLabel").textContent = `${mapped}%`;
   const fill = $("#dnaMeterFill");
-  fill.style.width = "0%";
-  requestAnimationFrame(() => requestAnimationFrame(() => (fill.style.width = `${mapped}%`)));
+  requestAnimationFrame(() => (fill.style.width = `${mapped}%`));
   $("#dnaHeroSub").textContent = learned
     ? learned.summary
     : mapped > 0
@@ -675,39 +700,68 @@ async function renderDashboard() {
       : "Log your first meal and the engine starts decoding you.";
 
   const cards = [];
-
-  const meals = s.nutrition.stats.meals || 0;
+  const mealCount = s.nutrition.stats.meals || 0;
   cards.push(
-    dashCard("Meal DNA", `${meals} ${meals === 1 ? "meal" : "meals"}`,
+    dashCard("Meal DNA", `${mealCount} ${mealCount === 1 ? "meal" : "meals"}`,
       s.nutrition.stats.avgCaloriesPerDay ? `~${s.nutrition.stats.avgCaloriesPerDay} kcal/day this week` : "Tap to log a meal", "log")
   );
-
   const drinks = s.beverage.stats.drinks || 0;
   cards.push(
     dashCard("Beverage DNA", `${drinks} ${drinks === 1 ? "drink" : "drinks"}`,
       drinks ? `${s.beverage.stats.sugaryDrinks || 0} high-sugar · ${s.beverage.stats.alcoholServings || 0} alcohol` : "Tap to log a drink", "drink")
   );
-
   const workouts = s.activity.stats.workouts || 0;
   cards.push(
     dashCard("Workout DNA", `${workouts} ${workouts === 1 ? "workout" : "workouts"}`,
       `${s.activity.stats.totalMinutes || 0} min this week`, "track")
   );
-
   cards.push(
     dashCard("Glucose DNA", latestGlucose ? `${latestGlucose.fastingGlucose} mg/dL` : "—",
       latestGlucose ? "latest fasting glucose" : "Log a reading under Track", "track")
   );
-
   const dir = s.recovery.stats.direction;
   cards.push(
     dashCard("Progress", latestWeight ? `${latestWeight.weightLb} lb` : (profile.goal || "Set a goal"),
       dir && dir !== "unknown" ? `weight trend ${dir}` : "Log a weigh-in to track trend", "track")
   );
-
   cards.push(dashCard("Weekly DNA Report", "Your week in review", "Tap to open the full report", "review", "wide"));
-
   $("#dashCards").innerHTML = cards.join("");
+}
+
+async function renderDashboard() {
+  // Paint the date + a generic greeting + helix immediately.
+  $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  const hour = new Date().getHours();
+  $("#dashHello").textContent = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  renderHelix();
+
+  // Instant render from the last-known cache (no network wait). If there's no
+  // cache yet, show shimmer skeletons.
+  const cached = readDashCache();
+  if (cached) {
+    try {
+      renderDashboardData(cached);
+    } catch (e) {
+      console.error("Cache render failed:", e);
+    }
+  } else {
+    const skel = (h) => `<div class="skel-box" style="height:${h}px"></div>`;
+    $("#dashNudges").innerHTML = skel(78);
+    $("#dashCards").innerHTML = Array.from({ length: 6 }, () => skel(98)).join("");
+  }
+
+  // Refresh from the source in the background, then re-render.
+  try {
+    const fresh = await fetchUserData();
+    renderDashboardData(fresh);
+  } catch (err) {
+    console.error("Dashboard refresh failed:", err);
+    if (!cached) {
+      $("#dashNudges").innerHTML =
+        '<div class="nudge nudge-info"><div class="nudge-text"><strong>Couldn\'t load your data</strong><p>Check your connection, or sign out and back in.</p></div></div>';
+      $("#dashCards").innerHTML = "";
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -982,6 +1036,7 @@ async function resetData() {
   }
   if (!confirm("Delete everything stored on this device — profile, meals, workouts, and body entries?")) return;
   clearLocalData();
+  clearDashCache();
   localStorage.removeItem("ywye.onboarded");
   clearMeal();
   await renderHistory();
@@ -1150,6 +1205,8 @@ async function startCloud() {
     }
   });
   const doSignOut = async () => {
+    clearDashCache();
+    localStorage.removeItem("ywye.onboarded");
     await cloud.signOut();
   };
   $("#signOut").addEventListener("click", doSignOut);
