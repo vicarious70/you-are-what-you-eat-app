@@ -26,7 +26,7 @@ export async function getClient() {
     clientPromise = (async () => {
       const cfg = await loadConfig();
       if (!cfg.configured) throw new Error("Cloud backend is not configured (missing Supabase env vars).");
-      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
       return createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
         auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
       });

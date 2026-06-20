@@ -44,6 +44,7 @@ let store = createLocalStore();
 let engine = new HealthDNAEngine(store);
 let UID = "";
 let cloudActive = false; // true once a Supabase-backed session is in use
+let bootWatchdog = null; // safety timer so the boot never sits blank
 
 function getLocalUserId() {
   let id = localStorage.getItem("ywye.userid");
@@ -1034,6 +1035,7 @@ requiredFields.forEach(([id]) =>
 
 // Render history then either open the app or run onboarding. Shared by both modes.
 async function bootApp() {
+  if (bootWatchdog) clearTimeout(bootWatchdog);
   // Reveal the tabbed app (it's hidden by body.js-loading until now).
   document.body.classList.remove("js-loading");
 
@@ -1172,7 +1174,22 @@ if (CLOUD_ENABLED) {
   // The gate lives outside .app-shell, so it shows even while js-loading keeps
   // the tabbed app hidden.
   if (!hasPersistedSession()) $("#authGate").hidden = false;
-  startCloud();
+
+  // Safety net: never sit on a blank screen. If auth hasn't resolved (e.g. the
+  // auth library failed to load), reveal the sign-in screen so the user can act.
+  bootWatchdog = setTimeout(() => {
+    if (document.body.classList.contains("js-loading")) {
+      $("#authGate").hidden = false;
+      toast("Couldn't auto-load your session — please sign in");
+    }
+  }, 5000);
+
+  startCloud().catch((err) => {
+    console.error("Cloud start failed:", err);
+    if (bootWatchdog) clearTimeout(bootWatchdog);
+    $("#authGate").hidden = false;
+    toast("Sign-in couldn't load — check your connection");
+  });
 } else {
   bootLocal();
 }
