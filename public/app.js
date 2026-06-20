@@ -610,20 +610,38 @@ function renderHelix() {
 }
 
 async function renderDashboard() {
-  const profile = (await store.getProfile(UID)) || {};
-  const name = profile.name && profile.name !== "Friend" ? profile.name : "there";
+  // Paint the greeting + helix FIRST so the screen is never stuck on "Welcome"
+  // even if the cloud data can't load.
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  $("#dashHello").textContent = `${greet}, ${name}`;
   $("#dashEyebrow").textContent = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+  $("#dashHello").textContent = greet;
+  renderHelix();
 
-  const [review, dna, body, activities, nudges] = await Promise.all([
-    engine.weeklyReview(UID),
-    engine.getHealthDNA(UID),
-    store.listBodyEntries(UID),
-    store.listActivities ? store.listActivities(UID) : Promise.resolve([]),
-    engine.nudges(UID),
-  ]);
+  let profile = {};
+  try {
+    profile = (await store.getProfile(UID)) || {};
+  } catch (err) {
+    console.error("Dashboard profile load failed:", err);
+  }
+  const name = profile.name && profile.name !== "Friend" ? profile.name : "";
+  $("#dashHello").textContent = name ? `${greet}, ${name}` : greet;
+
+  let review, dna, body, activities, nudges;
+  try {
+    [review, dna, body, activities, nudges] = await Promise.all([
+      engine.weeklyReview(UID),
+      engine.getHealthDNA(UID),
+      store.listBodyEntries(UID),
+      store.listActivities ? store.listActivities(UID) : Promise.resolve([]),
+      engine.nudges(UID),
+    ]);
+  } catch (err) {
+    console.error("Dashboard data load failed:", err);
+    $("#dashNudges").innerHTML =
+      '<div class="nudge nudge-info"><div class="nudge-text"><strong>Couldn\'t load your data</strong><p>Check your connection, or sign out and back in.</p></div></div>';
+    return;
+  }
 
   // Predictive nudges — timely, personalized prompts.
   $("#dashNudges").innerHTML = nudges

@@ -185,20 +185,32 @@ export function createCloudStore(client, userId) {
   const check = (error, what) => {
     if (error) throw new Error(`${what} failed: ${error.message}`);
   };
+  // Never let a Supabase query hang the UI — race it against a timeout.
+  const withTimeout = (promise, what, ms = 9000) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`${what} timed out`)), ms)),
+    ]);
   const list = async (table, mapper) => {
-    const { data, error } = await client.from(table).select("*").eq("user_id", userId).order("at", { ascending: true });
+    const { data, error } = await withTimeout(
+      client.from(table).select("*").eq("user_id", userId).order("at", { ascending: true }),
+      `list ${table}`
+    );
     check(error, `list ${table}`);
     return (data || []).map(mapper);
   };
   const insert = async (table, row, mapper, what) => {
-    const { data, error } = await client.from(table).insert(row).select("*").single();
+    const { data, error } = await withTimeout(client.from(table).insert(row).select("*").single(), what);
     check(error, what);
     return mapper(data);
   };
 
   return {
     async getProfile() {
-      const { data, error } = await client.from("profiles").select("*").eq("id", userId).maybeSingle();
+      const { data, error } = await withTimeout(
+        client.from("profiles").select("*").eq("id", userId).maybeSingle(),
+        "getProfile"
+      );
       check(error, "getProfile");
       return rowToProfile(data) || null;
     },

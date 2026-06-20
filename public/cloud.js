@@ -28,7 +28,14 @@ export async function getClient() {
       if (!cfg.configured) throw new Error("Cloud backend is not configured (missing Supabase env vars).");
       const { createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm");
       return createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+          // Bypass the Web Locks API, which can deadlock token refresh on mobile
+          // Safari and hang every query after a reload.
+          lock: async (_name, _acquireTimeout, fn) => fn(),
+        },
       });
     })();
   }
